@@ -16,7 +16,9 @@
   // マスの種類の名前（カードの上に出る）
   var BADGES = { place: "めいしょ", lucky: "ラッキー", quiz: "クイズ", happening: "ハプニング", move: "すすむ・もどる", toki: "レア！", unknown: "？" };
 
-  var GOAL_BONUS = [100, 60, 30, 10];
+  var GOAL_BONUS = [150, 120, 80, 50]; // 1着・2着・3着・4着
+  var TOKI_MAX = 2;       // 野生のトキは 1人 2回まで
+  var WAITING_BONUS = 10; // ゴールした人がサイコロをふったときの「出た目 × 10てん」
   var STEP_MS = 300;   // 1マス進む時間
   var DICE_MS = 1700;  // サイコロが転がっている時間
   var PASS_MS = 2000;  // 名所を通りすぎたときのカードを出しておく時間
@@ -158,7 +160,8 @@
         shown: 0,         // スコアボードに出しているポイント（カウントアップのため）
         finishOrder: null, // ゴールした順番（0 = 1着）
         seasick: false,   // 船よい：つぎの番で すすむマスが 1 へる
-        tokiUp: false     // I♥佐渡：野生のトキに 会える かくりつが 上がる
+        tokiUp: false,    // I♥佐渡：野生のトキに 会える かくりつが 上がる
+        tokiCount: 0      // 野生のトキに 会った回数（1人 2回まで）
       });
     });
 
@@ -177,7 +180,9 @@
     var p = cur();
     var banner = $("turn-banner");
     banner.style.background = p.koma.color;
-    $("turn-text").innerHTML = komaIcon(p.koma, 52) + "<span>" + esc(p.name) + "さんの 番</span>";
+    var done = p.finishOrder !== null;
+    $("turn-text").innerHTML = komaIcon(p.koma, 52) + "<span>" + esc(p.name) + "さんの 番" + (done ? "<small class='turn-done'>ゴールずみ</small>" : "") + "</span>";
+    $("roll-button").innerHTML = done ? "サイコロを ふる<small>出た目 × " + WAITING_BONUS + "てん</small>" : "サイコロを ふる";
     banner.classList.remove("turn-pop");
     void banner.offsetWidth;
     banner.classList.add("turn-pop");
@@ -274,6 +279,16 @@
     // サイコロをふったら地図は動かせなくする
     map.setInteractive(false);
     $("dice-result").textContent = "";
+
+    // ゴールした人：コマは動かさず、出た目 × 10てん
+    if (cur().finishOrder !== null) {
+      rollDice(function (n) {
+        $("dice-result").innerHTML = "<b>" + n + "</b> × " + WAITING_BONUS + "てん！";
+        showBigNumber(n, "× " + WAITING_BONUS + "てん！");
+        later(function () { waitingBonus(n); }, 700);
+      });
+      return;
+    }
 
     rollDice(function (n) {
       var p = cur();
@@ -556,7 +571,9 @@
     var p = cur();
     var t = events.wildToki;
     var chance = t ? (p.tokiUp ? Math.max(0.1, t.chance * 2) : t.chance) : 0;
+    if (p.tokiCount >= TOKI_MAX) chance = 0;
     if (t && Math.random() < chance) {
+      p.tokiCount++;
       Sound.play("fanfare");
       openCard({ type: "toki", badge: "レア！", title: ruby(t.title), text: ruby(t.text), photo: t.photo });
       return awardPoints(t.point, nextTurn);
@@ -687,11 +704,21 @@
       later(showResults, 600);
       return;
     }
-    // ゴールした人の番はとばす
-    do {
-      game.turn = (game.turn + 1) % game.players.length;
-    } while (cur().finishOrder !== null);
+    // ゴールした人にも番が回ってくる（出た目 × 10てん）
+    game.turn = (game.turn + 1) % game.players.length;
     render();
+  }
+
+  // ゴールした人が、ほかの人を まっている あいだの ボーナス
+  function waitingBonus(n) {
+    var pts = n * WAITING_BONUS;
+    map.setInteractive(true);
+    openCard({
+      type: "goal", badge: "ゴールずみ", title: "まちじかん ボーナス",
+      text: ruby("{両津港|りょうつこう}で みんなを まちながら、サイコロを ふったよ。"),
+      body: '<div class="bonus-calc"><b>' + n + "</b> × " + WAITING_BONUS + " ＝ <b>" + pts + "</b>てん</div>"
+    });
+    awardPoints(pts, nextTurn);
   }
 
   // ---------- 結果発表 ----------
