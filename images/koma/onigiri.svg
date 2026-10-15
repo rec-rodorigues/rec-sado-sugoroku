@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- おにぎり（仮のキャラクター） -->
+  <path d="M50 8 Q59 8 65 18 L91 66 Q97 82 81 88 L19 88 Q3 82 9 66 L35 18 Q41 8 50 8 Z"
+        fill="#ffffff" stroke="#3b3b3b" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M33 64 H67 V88 H33 Z" fill="#1f2d26" stroke="#1f2d26" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M38 70 l4 2 M56 75 l4 -1 M46 80 l3 2" stroke="#3d5246" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="30" cy="40" r="1.6" fill="#d8d2c4"/>
+  <circle cx="66" cy="36" r="1.6" fill="#d8d2c4"/>
+  <circle cx="74" cy="56" r="1.6" fill="#d8d2c4"/>
+  <circle cx="42" cy="45" r="3.4" fill="#2b2626"/>
+  <circle cx="58" cy="45" r="3.4" fill="#2b2626"/>
+  <circle cx="43.2" cy="43.8" r="1.1" fill="#fff"/>
+  <circle cx="59.2" cy="43.8" r="1.1" fill="#fff"/>
+  <path d="M46 52 Q50 56 54 52" fill="none" stroke="#2b2626" stroke-width="2.5" stroke-linecap="round"/>
+  <ellipse cx="34" cy="52" rx="4" ry="2.6" fill="#f4a0ad" opacity="0.9"/>
+  <ellipse cx="66" cy="52" rx="4" ry="2.6" fill="#f4a0ad" opacity="0.9"/>
+</svg>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- たらい舟（仮のキャラクター） -->
+  <g stroke="#3a2a1e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M70 34 L86 6" fill="none" stroke-width="4"/>
+    <path d="M83 4 Q92 6 90 16 L84 14 Z" fill="#c98a4a"/>
+    <path d="M10 36 Q12 80 50 82 Q88 80 90 36 Z" fill="#cf9150"/>
+    <ellipse cx="50" cy="36" rx="40" ry="13" fill="#8a5a2b"/>
+    <path d="M13 52 Q50 64 87 52" fill="none"/>
+    <path d="M16 68 Q50 80 84 68" fill="none"/>
+    <path d="M30 41 v38 M50 44 v38 M70 41 v38" fill="none" stroke-width="1.5" opacity="0.5"/>
+  </g>
+  <path d="M2 92 Q14 84 26 92 T50 92 T74 92 T98 92" fill="none" stroke="#4aa8e0" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="40" cy="58" r="3.4" fill="#2b2626"/>
+  <circle cx="60" cy="58" r="3.4" fill="#2b2626"/>
+  <circle cx="41.2" cy="56.8" r="1.1" fill="#fff"/>
+  <circle cx="61.2" cy="56.8" r="1.1" fill="#fff"/>
+  <path d="M45 64 Q50 69 55 64" fill="none" stroke="#2b2626" stroke-width="2.5" stroke-linecap="round"/>
+  <ellipse cx="32" cy="64" rx="4" ry="2.6" fill="#f08a7a" opacity="0.8"/>
+  <ellipse cx="68" cy="64" rx="4" ry="2.6" fill="#f08a7a" opacity="0.8"/>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- トキ（仮のキャラクター） -->
+  <g stroke="#3b2a30" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M37 84 v9 M51 84 v9" fill="none" stroke="#e0574b" stroke-width="4"/>
+    <ellipse cx="44" cy="63" rx="31" ry="23" fill="#fdf3f4"/>
+    <path d="M18 60 Q36 40 64 55 Q55 80 24 74 Z" fill="#f4a0ad"/>
+    <path d="M26 64 Q38 58 50 62" fill="none" stroke-width="2.5"/>
+    <path d="M54 30 Q38 22 36 8 Q48 16 60 20 Z" fill="#fdf3f4"/>
+    <circle cx="66" cy="35" r="18" fill="#fdf3f4"/>
+    <path d="M67 22 Q86 24 84 41 Q73 47 65 40 Z" fill="#e2463b" stroke="none"/>
+    <path d="M82 36 Q95 43 95 60" fill="none" stroke="#2b2626" stroke-width="5"/>
+  </g>
+  <circle cx="73" cy="31" r="3.4" fill="#2b2626"/>
+  <circle cx="74.2" cy="29.8" r="1.1" fill="#fff"/>
+  <ellipse cx="60" cy="44" rx="4.5" ry="3" fill="#f4a0ad" opacity="0.9"/>
+</svg>

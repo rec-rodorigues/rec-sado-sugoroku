@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>佐渡すごろく</title>
+  <link rel="stylesheet" href="lib/leaflet/leaflet.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- タイトル画面 -->
+  <section id="title-screen" class="screen active">
+    <h1 class="game-title"><ruby>佐渡<rt>さど</rt></ruby>すごろく</h1>
+    <div id="title-komas" class="title-komas"></div>
+    <p class="lead">さどを ぐるっと <ruby>一周<rt>いっしゅう</rt></ruby>して、ポイントを あつめよう！</p>
+    <div class="setup-panel">
+      <h2>なん人で あそぶ？</h2>
+      <div id="count-buttons" class="count-buttons"></div>
+      <h2>名前と コマ</h2>
+      <div id="player-setup" class="player-setup"></div>
+      <button type="button" id="start-button" class="big-button start-button">スタート！</button>
+    </div>
+  </section>
+
+  <!-- ゲーム画面 -->
+  <section id="game-screen" class="screen">
+    <header id="turn-banner" class="turn-banner">
+      <span class="game-logo"><ruby>佐渡<rt>さど</rt></ruby>すごろく</span>
+      <span id="turn-text" class="turn-text"></span>
+    </header>
+    <div class="game-body">
+      <div class="map-area">
+        <div id="map" class="map"></div>
+        <ul class="legend">
+          <li><i class="lg-place"></i>めいしょ</li>
+          <li><i class="lg-lucky"></i>ラッキー</li>
+          <li><i class="lg-quiz"></i>クイズ</li>
+          <li><i class="lg-happening"></i>ハプニング</li>
+          <li><i class="lg-move"></i>すすむ・もどる</li>
+        </ul>
+        <div id="minimap" class="minimap"></div>
+        <p id="map-offline" class="map-offline" hidden>地図が よみこめません。インターネットに つないでください。</p>
+        <div id="big-number" class="big-number"></div>
+        <div id="pass-card" class="pass-card"></div>
+        <div id="event-card" class="event-card"></div>
+      </div>
+      <aside class="side">
+        <div class="scoreboard-box">
+          <h2>ポイント</h2>
+          <ol id="scoreboard" class="scoreboard"></ol>
+        </div>
+        <div class="dice-box">
+          <div id="dice-scene" class="dice-scene"><div class="dice-tilt"><div id="dice" class="cube"></div></div></div>
+          <p id="dice-result" class="dice-result"></p>
+          <button type="button" id="roll-button" class="big-button roll-button">サイコロを ふる</button>
+        </div>
+      </aside>
+      <!-- 編集モード（?edit=1）のときだけ出る -->
+      <aside class="edit-panel">
+        <h2>へんしゅうモード</h2>
+        <p>マスの場所を決めるための画面です。ゲームはできません。</p>
+        <h3>地図をクリックした場所</h3>
+        <div class="edit-row"><input id="edit-click" readonly placeholder="地図をクリックしてね"><button type="button" data-copy="edit-click">コピー</button></div>
+        <h3 id="edit-square-title">マスをクリック・ドラッグ</h3>
+        <textarea id="edit-line" readonly rows="4" placeholder="マスをドラッグすると、新しい場所の行が出ます"></textarea>
+        <button type="button" class="edit-copy" data-copy="edit-line">この行をコピー</button>
+        <p class="edit-note">コピーした行を data/squares.js の同じ id の行と入れかえて、保存してください。<br>ページを読みこみ直すと、もとの場所にもどります。</p>
+        <a class="edit-exit" href="index.html">ゲームにもどる</a>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 結果発表 -->
+  <section id="result-screen" class="screen">
+    <canvas id="confetti" class="confetti"></canvas>
+    <h1 class="result-title">けっか はっぴょう</h1>
+    <div id="podium" class="podium"></div>
+    <ol id="other-ranks" class="other-ranks"></ol>
+    <button type="button" id="again-button" class="big-button">もういちど あそぶ</button>
+  </section>
+
+  <!-- 音の ON/OFF -->
+  <button type="button" id="sound-button" class="sound-button"></button>
+
+  <!-- データの書き間違いのお知らせ -->
+  <div id="data-problems" class="data-problems" hidden></div>
+
+  <script src="data/squares.js"></script>
+  <script src="data/events.js"></script>
+  <script src="data/quizzes.js"></script>
+  <script src="data/credits.js"></script>
+  <script src="lib/leaflet/leaflet.js"></script>
+  <script src="js/map-data.js"></script>
+  <script src="js/check.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/roads.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
