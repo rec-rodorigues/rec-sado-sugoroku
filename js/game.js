@@ -18,7 +18,8 @@
 
   var GOAL_BONUS = [150, 120, 80, 50]; // 1着・2着・3着・4着
   var TOKI_MAX = 2;       // 野生のトキは 1人 2回まで
-  var WAITING_BONUS = 10; // ゴールした人がサイコロをふったときの「出た目 × 10てん」
+  var WAITING_BONUS = 5;    // ゴールした人がサイコロをふったときの「出た目 × 5てん」
+  var WAITING_ONE = -10;   // ただし 1 が出たら −10てん
   var STEP_MS = 300;   // 1マス進む時間
   var DICE_MS = 1700;  // サイコロが転がっている時間
   var PASS_MS = 2000;  // 名所を通りすぎたときのカードを出しておく時間
@@ -182,7 +183,7 @@
     banner.style.background = p.koma.color;
     var done = p.finishOrder !== null;
     $("turn-text").innerHTML = komaIcon(p.koma, 52) + "<span>" + esc(p.name) + "さんの 番" + (done ? "<small class='turn-done'>ゴールずみ</small>" : "") + "</span>";
-    $("roll-button").innerHTML = done ? "サイコロを ふる<small>出た目 × " + WAITING_BONUS + "てん</small>" : "サイコロを ふる";
+    $("roll-button").innerHTML = done ? "サイコロを ふる<small>出た目 × " + WAITING_BONUS + "てん（1は −10）</small>" : "サイコロを ふる";
     banner.classList.remove("turn-pop");
     void banner.offsetWidth;
     banner.classList.add("turn-pop");
@@ -283,8 +284,8 @@
     // ゴールした人：コマは動かさず、出た目 × 10てん
     if (cur().finishOrder !== null) {
       rollDice(function (n) {
-        $("dice-result").innerHTML = "<b>" + n + "</b> × " + WAITING_BONUS + "てん！";
-        showBigNumber(n, "× " + WAITING_BONUS + "てん！");
+        $("dice-result").innerHTML = n === 1 ? "<b>1</b> … −10てん" : "<b>" + n + "</b> × " + WAITING_BONUS + "てん！";
+        showBigNumber(n, n === 1 ? "ざんねん… −10てん" : "× " + WAITING_BONUS + "てん！");
         later(function () { waitingBonus(n); }, 700);
       });
       return;
@@ -378,7 +379,7 @@
 
   function addPoints(p, delta) {
     var before = p.points;
-    p.points = Math.max(0, p.points + delta);
+    p.points = p.points + delta; // マイナスになってもよい
     return p.points - before;
   }
 
@@ -711,12 +712,14 @@
 
   // ゴールした人が、ほかの人を まっている あいだの ボーナス
   function waitingBonus(n) {
-    var pts = n * WAITING_BONUS;
+    var pts = n === 1 ? WAITING_ONE : n * WAITING_BONUS;
     map.setInteractive(true);
     openCard({
       type: "goal", badge: "ゴールずみ", title: "まちじかん ボーナス",
       text: ruby("{両津港|りょうつこう}で みんなを まちながら、サイコロを ふったよ。"),
-      body: '<div class="bonus-calc"><b>' + n + "</b> × " + WAITING_BONUS + " ＝ <b>" + pts + "</b>てん</div>"
+      body: n === 1
+        ? '<div class="bonus-calc miss"><b>1</b> が 出ちゃった… <b>−10</b>てん</div>'
+        : '<div class="bonus-calc"><b>' + n + "</b> × " + WAITING_BONUS + " ＝ <b>" + pts + "</b>てん</div>"
     });
     awardPoints(pts, nextTurn);
   }
