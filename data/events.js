@@ -21,25 +21,27 @@ window.EVENTS = {
 
   // ---------- 名所マス（金） ----------
   // id は data/squares.js の event と同じにする
-  // photo は images/places/ に置いた写真（横1200px以下の jpg）
+  // photo は images/places/ に置いた写真（横1200px以下の jpg・png・webp）
+// 出典（だれの写真か・使ってよいか）が確認できるまでは photo: "" にしておく。確認できたら、行の右の
+// 「出典確認待ち：」のあとのファイル名を photo に入れ、data/credits.js に出典を書く
   // dice を書くと「サイコロボーナス」：もう一度サイコロをふって、目 × dice てん
   places: [
     { id: "toki", title: "トキの森公園に 行った！", text: "本物の トキを 見る ことが できるよ。",
-      photo: "images/places/toki.jpg", point: 70 },
+      photo: "", point: 70 }, // 出典確認待ち：images/places/toki.webp
     { id: "onogame", title: "{大野亀|おおのがめ}に とうちゃく！", text: "海に つき出た 大きな 岩と、黄色い 花畑を 見に いこう。",
-      photo: "images/places/onogame.jpg", point: 60 },
+      photo: "", point: 60 }, // 出典確認待ち：images/places/onogame.webp
     { id: "kinzan", title: "金を 見つけた！", text: "サイコロを ふって、出た 目 × 30てん ぶんの 金を ほりだそう！",
-      photo: "images/places/kinzan.jpg", dice: 30 },
+      photo: "", dice: 30 }, // 出典確認待ち：images/places/kinzan.webp
     { id: "daizen", title: "{能|のう}を 見た！", text: "{大膳神社|だいぜんじんじゃ}の {能舞台|のうぶたい}で、むかしから つづく {能|のう}を 見たよ。",
-      photo: "images/places/daizen.jpg", point: 80 },
+      photo: "", point: 80 }, // 出典確認待ち：images/places/daizen.png
     { id: "benkei", title: "おいしい お{寿司|すし}を 食べた！", text: "{佐渡|さど}の 海で とれた 魚の お{寿司|すし}は さいこう！",
-      photo: "images/places/benkei.jpg", point: 70 },
+      photo: "", point: 70 }, // 出典確認待ち：images/places/benkei.webp
     { id: "myosenji", title: "{五重塔|ごじゅうのとう}を 見上げよう", text: "{木|き}で できた 高い 塔に びっくり！",
-      photo: "images/places/myosenji.jpg", point: 60 },
+      photo: "", point: 60 }, // 出典確認待ち：images/places/myosenji.webp
     { id: "ogi", title: "たらい{舟|ぶね}に のった！", text: "まるい たらいの {舟|ふね}で 海に こぎ出したよ。",
-      photo: "images/places/ogi.jpg", point: 50 },
+      photo: "", point: 50 }, // 出典確認待ち：images/places/ogi.png
     { id: "iwakubi", title: "{棚田|たなだ}で おいしい お米を しゅうかく！", text: "山の しゃめんに ならぶ 田んぼで とれた お米だよ。",
-      photo: "images/places/iwakubi.jpg", point: 50 }
+      photo: "", point: 50 } // 出典確認待ち：images/places/iwakubi.webp
   ],
 
   // ---------- ラッキーマス（青） +10〜+30 ----------
@@ -90,5 +92,5 @@ window.EVENTS = {
   // ---------- 野生のトキ ----------
   // どのマスでも、イベントの あとに chance の かくりつで 出る（0.05 = 5%）
   wildToki: { title: "野生の トキを 見つけた！", text: "空を とぶ トキに 会えるなんて、すごく ラッキー！",
-    photo: "images/places/wild-toki.jpg", point: 150, chance: 0.05 }
+    photo: "", point: 150, chance: 0.05 } // 出典確認待ち：images/places/wild-toki.png
 };

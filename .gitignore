@@ -2,3 +2,7 @@ Thumbs.db
 desktop.ini
 .DS_Store
 .claude/
+
+# Photos are kept local until their sources are confirmed
+images/places/*
+!images/places/.gitkeep

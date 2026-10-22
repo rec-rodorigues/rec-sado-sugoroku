@@ -38,7 +38,7 @@ var MapView = (function () {
     if (isBig(s)) {
       var name = s.yomi ? "<ruby>" + esc(s.name) + "<rt>" + esc(s.yomi) + "</rt></ruby>" : esc(s.name);
       if (s.type === "start") name += "<small>スタート・ゴール</small>";
-      if (s.stop) name += "<small class='stop-note'>かならず とまる</small>";
+      if (s.stop) name += "<small class='stop-note'>ここで ストップ</small>";
       html += '<div class="sq-name">' + name + "</div>";
     }
     return html;

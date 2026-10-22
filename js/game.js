@@ -355,14 +355,20 @@
   }
 
   function showPassCard(sq) {
-    flashCard('<span class="pass-star"></span><div><small>とおりすぎた！</small><b>' + placeName(sq) + "</b></div>");
+    flashCard(passIcon(sq) + '<div><small>とおりすぎた！</small><b>' + placeName(sq) + "</b></div>");
     Sound.play("pass");
   }
 
   // かならず止まるマスで止まったとき
   function showStopNote(sq) {
-    flashCard('<span class="pass-star"></span><div><small>ここで ストップ！</small><b>' + placeName(sq) + "</b></div>");
+    flashCard(passIcon(sq) + '<div><small>ここで ストップ！</small><b>' + placeName(sq) + "</b></div>");
     Sound.play("reveal");
+  }
+
+  // 小さなカードの左の絵：名所の写真があれば写真、なければ星
+  function passIcon(sq) {
+    var ev = events.places[sq.event];
+    return ev && ev.photo ? '<img class="pass-photo" src="' + esc(ev.photo) + '" alt="">' : '<span class="pass-star"></span>';
   }
 
   function flashCard(html) {

@@ -919,3 +919,6 @@ button { font-family: inherit; color: inherit; }
 /* ゴールした人の番 */
 .turn-done { font-size: 18px; margin-left: 12px; padding: 2px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.3); vertical-align: 6px; }
 .roll-button small { display: block; font-size: 16px; margin-top: 2px; }
+
+/* 通りすぎたときの小さなカードの写真 */
+.pass-photo { width: 72px; height: 54px; object-fit: cover; border-radius: 10px; flex: none; }
