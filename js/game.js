@@ -25,7 +25,8 @@
   var PASS_MS = 2000;  // 名所を通りすぎたときのカードを出しておく時間
   var PIPS = { 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
   // サイコロの目 n を正面に向けるための回転（X, Y）
-  var DICE_FACE = { 1: [0, 0], 2: [0, -90], 3: [-90, 0], 4: [90, 0], 5: [0, 90], 6: [0, 180] };
+  // 目 n を 上の面に むける 回転 [rotateX, rotateY]
+  var DICE_FACE = { 1: [90, 0], 2: [90, -90], 3: [0, 0], 4: [180, 0], 5: [90, 90], 6: [-90, 0] };
 
   function $(id) { return document.getElementById(id); }
 
@@ -229,7 +230,7 @@
     $("dice").innerHTML = html;
   }
 
-  // 目 n が正面に来るように、何回転かしてから止める
+  // 目 n が上の面に来るように、何回転かしてから止める
   function spinDiceTo(n) {
     var f = DICE_FACE[n];
     dice.x = Math.ceil((dice.x + 720) / 360) * 360 + f[0];
@@ -634,6 +635,9 @@
       hideCard();
       (then || endTurn)();
     }).id = "card-next";
+    // 画面が低いときも、こたえ・ポイント・「つぎへ」が 見えるように 下まで スクロール
+    var card = $("event-card");
+    requestAnimationFrame(function () { card.scrollTop = card.scrollHeight; });
 
     later(function () {
       countUp($("card-num"), 0, delta, 600, function (v) { return fmt(v, delta); }, function () {
