@@ -933,3 +933,131 @@ button { font-family: inherit; color: inherit; }
 
 /* 通りすぎたときの小さなカードの写真 */
 .pass-photo { width: 72px; height: 54px; object-fit: cover; border-radius: 10px; flex: none; }
+
+/* ---------- おとなモード ---------- */
+:root { --purple: #8e5cc4; --orange: #e5832a; }
+.adult-only { display: none !important; }
+.mode-adult .adult-only { display: revert !important; }
+.mode-adult .legend li.adult-only { display: flex !important; }
+
+/* タイトル画面のモード */
+.mode-buttons { display: flex; gap: 16px; margin-bottom: 8px; }
+.mode-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 280px;
+  height: 64px;
+  border-radius: var(--radius);
+  border: 4px solid #d6e2ea;
+  background: #fff;
+  cursor: pointer;
+}
+.mode-button b { font-size: 28px; }
+.mode-button small { font-size: 14px; color: var(--sub); }
+.mode-button.selected { border-color: var(--sea); background: var(--sea); color: #fff; }
+.mode-button.selected small { color: #e3f1fa; }
+.mode-button.mode-adult.selected { border-color: var(--purple); background: var(--purple); }
+.mode-button:disabled { opacity: 0.4; cursor: default; }
+
+/* マスと はんれい */
+.sq-card { background: var(--purple); }
+.sq-rival { background: var(--orange); }
+.lg-card { background: var(--purple); }
+.lg-rival { background: var(--orange); }
+.sq-name .fork-note { color: var(--orange); }
+.sq-fork-name { font-size: 12px; color: #fff; background: var(--orange); padding: 1px 8px; border-radius: 999px; }
+
+/* イベントカードの色 */
+.type-card { border-top-color: var(--purple); }
+.type-card .card-badge { background: var(--purple); }
+.type-rival { border-top-color: var(--orange); }
+.type-rival .card-badge { background: var(--orange); }
+.type-fork, .type-dice2 { border-top-color: var(--sea); }
+.type-fork .card-badge, .type-dice2 .card-badge { background: var(--sea); }
+
+/* 分かれ道・サイコロ2こ・相手えらび のボタン */
+.fork-choices, .pick-choices, .swap-choices { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 6px 0 10px; }
+.fork-choice, .pick-choice, .swap-choice, .die-choice {
+  border: 3px solid #d6e2ea;
+  border-radius: 16px;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 800;
+}
+.fork-choice:hover, .pick-choice:hover, .swap-choice:hover, .die-choice:hover { border-color: var(--sea); background: #f1f8fd; }
+.fork-choice { flex: 1; min-width: 180px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.fork-choice b { font-size: 22px; }
+.fork-choice small { font-size: 14px; color: var(--sub); }
+.pick-title { font-weight: 800; margin: 4px 0; }
+.pick-choice { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 18px; }
+.pick-choice small { color: var(--sub); font-size: 14px; }
+.swap-choice { padding: 4px; }
+.die-choices { display: flex; gap: 20px; justify-content: center; margin: 8px 0 12px; }
+.die-choice { width: 92px; height: 92px; font-size: 52px; }
+.hand-full { font-weight: 800; margin: 8px 0 4px; }
+.guard-note { font-size: 22px; font-weight: 800; color: var(--sub); margin: 6px 0; }
+.guard-note.ok { color: var(--green); }
+.card-points .x2 { font-style: normal; font-size: 20px; margin-left: 8px; color: var(--purple); }
+
+/* カードの見た目 */
+.game-card {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 170px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 3px solid var(--purple);
+  background: #f6f0fc;
+  text-align: left;
+}
+.game-card b { font-size: 18px; color: var(--purple); }
+.game-card small { font-size: 13px; color: var(--sub); line-height: 1.5; }
+.drawn { margin: 6px 0; }
+
+/* サイコロ勝負 */
+.duel { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 8px 0; }
+.duel-side { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 110px; }
+.duel-side b { font-size: 16px; }
+.duel-side span { font-size: 44px; font-weight: 800; }
+.duel-vs { font-size: 22px; font-weight: 800; color: var(--orange); }
+
+/* 手札 */
+.hand-box {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 10px 14px;
+}
+.hand-box h2 { font-size: 18px; margin: 0 0 6px; color: var(--sub); }
+.hand-box h2 small { font-size: 12px; font-weight: 700; }
+.hand { display: flex; flex-direction: column; gap: 6px; }
+.hand-empty { margin: 0; font-size: 14px; color: var(--sub); }
+.hand-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 5px 10px;
+  border-radius: 10px;
+  border: 2px solid var(--purple);
+  background: #f6f0fc;
+  cursor: pointer;
+  text-align: left;
+}
+.hand-card b { font-size: 16px; color: var(--purple); }
+.hand-card small { font-size: 12px; color: var(--sub); }
+.hand-card:hover:not(:disabled) { background: #ebdff8; }
+.hand-card:disabled { cursor: default; opacity: 0.55; }
+.hand-card.kind-guard:disabled { opacity: 0.85; border-style: dashed; }
+.card-star { background: var(--purple); }
+
+/* スコアボードの カードの数 */
+.sb-tag.cards { background: var(--purple); }
+
+/* サイコロ2こ */
+.dice-row { display: flex; gap: 18px; }
+.dice-scene[hidden] { display: none; }
+.pick-choice:disabled { cursor: default; opacity: 0.45; }
+.pick-choice.picked { opacity: 1; border-color: var(--orange); background: #fdf1e6; }

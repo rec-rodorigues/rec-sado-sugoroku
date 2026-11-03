@@ -39,7 +39,10 @@ var MapView = (function () {
       var name = s.yomi ? "<ruby>" + esc(s.name) + "<rt>" + esc(s.yomi) + "</rt></ruby>" : esc(s.name);
       if (s.type === "start") name += "<small>スタート・ゴール</small>";
       if (s.stop) name += "<small class='stop-note'>ここで ストップ</small>";
+      if (s.branch) name += "<small class='fork-note'>分かれ道</small>";
       html += '<div class="sq-name">' + name + "</div>";
+    } else if (s.branch) {
+      html += '<div class="sq-name sq-fork-name">分かれ道</div>';
     }
     return html;
   }
@@ -48,27 +51,31 @@ var MapView = (function () {
     return L.divIcon({ className: "sq-wrap", html: squareHtml(s, i), iconSize: [0, 0] });
   }
 
-  // マスとマスをなめらかな曲線でつなぐ（実際の道ではなく、見やすさ優先）
+  // マスとマスをなめらかな曲線でつなぐ（実際の道ではなく、見やすさ優先）。
+  // 分かれ道があっても かけるよう、つながり（i → つぎのマス）ごとに1本ずつ線を作る
   function makeRoute(squares) {
-    var n = squares.length, SAMPLES = 8, TENSION = 0.5;
+    var SAMPLES = 8, TENSION = 0.5;
     var xy = squares.map(function (s) { return Roads.toXY(s.lat, s.lng); });
-    var latlngs = [];
-    for (var i = 0; i < n; i++) {
-      var p0 = xy[(i - 1 + n) % n], p1 = xy[i], p2 = xy[(i + 1) % n], p3 = xy[(i + 2) % n];
-      for (var k = 0; k < SAMPLES; k++) {
-        var t = k / SAMPLES, t2 = t * t, t3 = t2 * t;
-        // カーディナル・スプライン（マスを必ず通る曲線）
-        var m1 = [(p2[0] - p0[0]) * TENSION, (p2[1] - p0[1]) * TENSION];
-        var m2 = [(p3[0] - p1[0]) * TENSION, (p3[1] - p1[1]) * TENSION];
-        var h1 = 2 * t3 - 3 * t2 + 1, h2 = t3 - 2 * t2 + t, h3 = -2 * t3 + 3 * t2, h4 = t3 - t2;
-        latlngs.push(Roads.toLatLng([
-          h1 * p1[0] + h2 * m1[0] + h3 * p2[0] + h4 * m2[0],
-          h1 * p1[1] + h2 * m1[1] + h3 * p2[1] + h4 * m2[1]
-        ]));
-      }
-    }
-    latlngs.push(latlngs[0]);
-    return latlngs;
+    var lines = [];
+    squares.forEach(function (_, i) {
+      squareNexts(squares, i).forEach(function (j) {
+        var p0 = xy[squarePrev(squares, i)], p1 = xy[i], p2 = xy[j], p3 = xy[squareNexts(squares, j)[0]];
+        var latlngs = [];
+        for (var k = 0; k <= SAMPLES; k++) {
+          var t = k / SAMPLES, t2 = t * t, t3 = t2 * t;
+          // カーディナル・スプライン（マスを必ず通る曲線）
+          var m1 = [(p2[0] - p0[0]) * TENSION, (p2[1] - p0[1]) * TENSION];
+          var m2 = [(p3[0] - p1[0]) * TENSION, (p3[1] - p1[1]) * TENSION];
+          var h1 = 2 * t3 - 3 * t2 + 1, h2 = t3 - 2 * t2 + t, h3 = -2 * t3 + 3 * t2, h4 = t3 - t2;
+          latlngs.push(Roads.toLatLng([
+            h1 * p1[0] + h2 * m1[0] + h3 * p2[0] + h4 * m2[0],
+            h1 * p1[1] + h2 * m1[1] + h3 * p2[1] + h4 * m2[1]
+          ]));
+        }
+        lines.push(latlngs);
+      });
+    });
+    return lines;
   }
 
   // opts.edit が true のときは「編集モード」：マスをドラッグで動かせて、地図をクリックすると緯度・経度がわかる
@@ -271,7 +278,11 @@ var MapView = (function () {
       for (var i = 2; i + 1 < ring.length; i += 2) d += "L" + ring[i] + " " + ring[i + 1];
       el("path", { d: d + "Z", "class": "mini-land" }, svg);
     });
-    el("path", { d: "M" + xy.map(function (p) { return p.join(" "); }).join("L") + "Z", "class": "mini-route" }, svg);
+    var routeD = "";
+    squares.forEach(function (_, i) {
+      squareNexts(squares, i).forEach(function (j) { routeD += "M" + xy[i].join(" ") + "L" + xy[j].join(" "); });
+    });
+    el("path", { d: routeD, "class": "mini-route" }, svg);
     squares.forEach(function (s, i) {
       if (isBig(s)) el("circle", { cx: xy[i][0], cy: xy[i][1], r: 30, "class": "mini-place" }, svg);
     });
@@ -308,6 +319,22 @@ var MapView = (function () {
 
   return { create: create };
 })();
+
+// マス i から 進める マス（分かれ道なら 2つ以上）。いちばん最後のマスの つぎは 0（ゴール）
+function squareNexts(squares, i) {
+  var s = squares[i];
+  if (s.branch) return s.branch.map(function (b) { return b.to; });
+  if (typeof s.next === "number") return [s.next];
+  return [(i + 1) % squares.length];
+}
+
+// マス i の 1つ前の マス（線を なめらかに するためだけに 使う）
+function squarePrev(squares, i) {
+  var n = squares.length, before = (i - 1 + n) % n;
+  if (squareNexts(squares, before).indexOf(i) >= 0) return before;
+  for (var k = 0; k < n; k++) if (squareNexts(squares, k).indexOf(i) >= 0) return k;
+  return before;
+}
 
 // コマの見た目：プレイヤーの色の台に、キャラクターの絵（images/koma/）がのっている
 function komaIcon(k, px) {

@@ -21,6 +21,8 @@
     <div class="setup-panel">
       <h2>なん人で あそぶ？</h2>
       <div id="count-buttons" class="count-buttons"></div>
+      <h2>モード</h2>
+      <div id="mode-buttons" class="mode-buttons"></div>
       <h2>名前と コマ</h2>
       <div id="player-setup" class="player-setup"></div>
       <button type="button" id="start-button" class="big-button start-button">スタート！</button>
@@ -42,6 +44,8 @@
           <li><i class="lg-quiz"></i>クイズ</li>
           <li><i class="lg-happening"></i>ハプニング</li>
           <li><i class="lg-move"></i>すすむ・もどる</li>
+          <li class="adult-only"><i class="lg-card"></i>カード</li>
+          <li class="adult-only"><i class="lg-rival"></i>かけひき</li>
         </ul>
         <div id="minimap" class="minimap"></div>
         <p id="map-offline" class="map-offline" hidden>地図が よみこめません。インターネットに つないでください。</p>
@@ -54,8 +58,16 @@
           <h2>ポイント</h2>
           <ol id="scoreboard" class="scoreboard"></ol>
         </div>
+        <!-- おとなモードの手札 -->
+        <div id="hand-box" class="hand-box adult-only">
+          <h2>カード <small>サイコロを ふる前に つかえる</small></h2>
+          <div id="hand" class="hand"></div>
+        </div>
         <div class="dice-box">
-          <div id="dice-scene" class="dice-scene"><div class="dice-tilt"><div id="dice" class="cube"></div></div></div>
+          <div class="dice-row">
+            <div id="dice-scene" class="dice-scene"><div class="dice-tilt"><div id="dice" class="cube"></div></div></div>
+            <div id="dice-scene2" class="dice-scene" hidden><div class="dice-tilt"><div id="dice2" class="cube"></div></div></div>
+          </div>
           <p id="dice-result" class="dice-result"></p>
           <button type="button" id="roll-button" class="big-button roll-button">サイコロを ふる</button>
         </div>
@@ -93,6 +105,9 @@
   <script src="data/squares.js"></script>
   <script src="data/events.js"></script>
   <script src="data/quizzes.js"></script>
+  <script src="data/adult/squares.js"></script>
+  <script src="data/adult/events.js"></script>
+  <script src="data/adult/quizzes.js"></script>
   <script src="data/credits.js"></script>
   <script src="lib/leaflet/leaflet.js"></script>
   <script src="js/map-data.js"></script>

@@ -3,18 +3,21 @@
 // 書き間違いがあってもゲームは止めず、問題をリストにして返す。
 // =====================================================
 
-var SQUARE_TYPES = ["start", "place", "lucky", "quiz", "happening", "move"];
+var SQUARE_TYPES = ["start", "place", "lucky", "quiz", "happening", "move", "card", "rival"];
 
-function checkSquares(raw) {
+// file：お知らせに出すファイル名、label：「おとなモードの」など、お知らせの頭につける言葉
+function checkSquares(raw, file, label) {
   var problems = [];
+  file = file || "data/squares.js";
+  label = label || "";
 
   if (!Array.isArray(raw) || raw.length < 2) {
-    problems.push("data/squares.js が読みこめません。カッコや「,」の書き間違いがないか確認してください。");
+    problems.push(file + " が読みこめません。カッコや「,」の書き間違いがないか確認してください。");
     return { squares: null, problems: problems };
   }
 
   function bad(i, msg) {
-    problems.push("マス" + i + "のデータに問題あり：" + msg);
+    problems.push(label + "マス" + i + "のデータに問題あり：" + msg);
   }
 
   var squares = raw.map(function (s, i) {
@@ -46,6 +49,24 @@ function checkSquares(raw) {
     sq.event = s.event || null;
     sq.stop = s.stop === true;
     return sq;
+  });
+
+  // つぎのマス（next）と分かれ道（branch）。ゴールは 0（両津港にもどる）
+  var n = raw.length;
+  function okId(v) { return typeof v === "number" && v % 1 === 0 && v >= 0 && v < n; }
+  squares.forEach(function (sq, i) {
+    var s = raw[i] || {};
+    if (s.next !== undefined) {
+      if (okId(s.next)) sq.next = s.next;
+      else bad(i, "next は 0〜" + (n - 1) + " のマスの id にしてください");
+    }
+    if (s.branch !== undefined) {
+      var ok = Array.isArray(s.branch) && s.branch.length >= 2 && s.branch.every(function (b) { return b && okId(b.to); });
+      if (!ok) bad(i, "branch は [{ to: マスの id, label: \"道の名前\" }, { … }] のように 2つ以上 書いてください");
+      else sq.branch = s.branch.map(function (b) {
+        return { to: b.to, label: typeof b.label === "string" ? b.label : "マス" + b.to + "へ", note: typeof b.note === "string" ? b.note : "" };
+      });
+    }
   });
 
   if (squares[0].type !== "start") {
@@ -82,15 +103,20 @@ function nearestValid(squares, i, dir) {
 // ポイントの幅（SPECの「イベントの型とポイント目安」）
 var RANGES = {
   place: [20, 100], dice: [10, 30], lucky: [10, 30], happening: [-20, -10], move: [-3, 3], quiz: [10, 30],
-  fixed: [-50, 100], toki: [50, 200], bonus: [10, 100]
+  fixed: [-50, 100], toki: [50, 200], bonus: [10, 100],
+  // おとなモード
+  steal: [10, 50], duel: [10, 50], leader: [10, 30], share: [10, 30], boost: [1, 3], count: [1, 5]
 };
-var EFFECTS = ["seasick", "tokiUp"];
+var EFFECTS = ["seasick", "tokiUp", "twoDice"];
+var CARD_KINDS = ["twoDice", "boost", "double", "swap", "steal", "guard"];
+var RIVAL_KINDS = ["swap", "steal", "leader", "share", "duel"];
 
 function clampTo(v, range) { return Math.max(range[0], Math.min(range[1], v)); }
 
-function checkEvents(raw, squares) {
+function checkEvents(raw, squares, label) {
   var problems = [];
-  var out = { places: {}, lucky: [], happening: [], move: [], fixed: {}, wildToki: null };
+  label = label || "";
+  var out = { places: {}, lucky: [], happening: [], move: [], fixed: {}, wildToki: null, cards: [], rival: [] };
   if (!raw || typeof raw !== "object") {
     problems.push("data/events.js が読みこめません。カッコや「,」の書き間違いがないか確認してください。");
     return { events: out, problems: problems };
@@ -190,14 +216,42 @@ function checkEvents(raw, squares) {
       point: point(where, t, RANGES.toki), chance: chance };
   }
 
+  // おとなモードのカード
+  (Array.isArray(raw.cards) ? raw.cards : []).forEach(function (e, i) {
+    var where = "カード" + (i + 1) + "番目";
+    if (!e || typeof e !== "object") return bad(where, "書き方がちがいます");
+    if (CARD_KINDS.indexOf(e.kind) < 0) return bad(where, "kind \"" + e.kind + "\" という カードは ありません");
+    var c = { kind: e.kind, title: text(e, "title") || e.kind, text: text(e, "text") };
+    if (e.kind === "steal") c.point = point(where, e, RANGES.steal);
+    if (e.kind === "boost") {
+      c.steps = isNum(e.steps) ? clampTo(Math.round(e.steps), RANGES.boost) : 2;
+      if (isNum(e.steps) && c.steps !== e.steps) bad(where, "steps は 1〜3 にしてください（" + c.steps + " にしました）");
+    }
+    c.count = isNum(e.count) ? clampTo(Math.round(e.count), RANGES.count) : 1;
+    if (isNum(e.count) && c.count !== e.count) bad(where, "count は 1〜5 にしてください（" + c.count + " にしました）");
+    out.cards.push(c);
+  });
+
+  // おとなモードのかけひき
+  (Array.isArray(raw.rival) ? raw.rival : []).forEach(function (e, i) {
+    var where = "かけひきイベント" + (i + 1) + "番目";
+    if (!e || typeof e !== "object") return bad(where, "書き方がちがいます");
+    if (RIVAL_KINDS.indexOf(e.kind) < 0) return bad(where, "kind \"" + e.kind + "\" という かけひきは ありません");
+    var r = { kind: e.kind, title: text(e, "title") || "かけひき", text: text(e, "text") };
+    if (RANGES[e.kind]) r.point = point(where, e, RANGES[e.kind]);
+    out.rival.push(r);
+  });
+
   // マスとイベントがつながっているか
   (squares || []).forEach(function (sq, i) {
     if (sq.type === "place" && !out.places[sq.event]) {
-      problems.push("マス" + i + "のデータに問題あり：event \"" + sq.event + "\" が data/events.js の places にありません");
+      problems.push(label + "マス" + i + "のデータに問題あり：event \"" + sq.event + "\" が data/events.js の places にありません");
     } else if (sq.type !== "place" && sq.type !== "start" && sq.event && !out.fixed[sq.event]) {
-      problems.push("マス" + i + "のデータに問題あり：event \"" + sq.event + "\" が data/events.js の fixed にありません");
+      problems.push(label + "マス" + i + "のデータに問題あり：event \"" + sq.event + "\" が data/events.js の fixed にありません");
     }
   });
+  if ((squares || []).some(function (sq) { return sq.type === "card"; }) && !out.cards.length) problems.push("カードが1まいも ありません（data/adult/events.js の cards）");
+  if ((squares || []).some(function (sq) { return sq.type === "rival"; }) && !out.rival.length) problems.push("かけひきイベントが1つも ありません（data/adult/events.js の rival）");
   ["lucky", "happening", "move"].forEach(function (key) {
     var used = (squares || []).some(function (sq) { return sq.type === key && !sq.event; });
     if (used && !out[key].length) problems.push("data/events.js に " + key + " のイベントが1つもありません");
@@ -207,15 +261,16 @@ function checkEvents(raw, squares) {
 }
 // ---------- クイズ（data/quizzes.js） ----------
 
-function checkQuizzes(raw) {
+function checkQuizzes(raw, file) {
   var problems = [];
   var out = [];
+  file = file || "data/quizzes.js";
   if (!Array.isArray(raw)) {
-    problems.push("data/quizzes.js が読みこめません。カッコや「,」の書き間違いがないか確認してください。");
+    problems.push(file + " が読みこめません。カッコや「,」の書き間違いがないか確認してください。");
     return { quizzes: out, problems: problems };
   }
   raw.forEach(function (q, i) {
-    var where = "クイズ" + (i + 1) + "問目";
+    var where = (file === "data/quizzes.js" ? "" : file + " の ") + "クイズ" + (i + 1) + "問目";
     function bad(msg) { problems.push(where + "のデータに問題あり：" + msg); }
     if (!q || typeof q !== "object" || typeof q.question !== "string") return bad("question（問題文）がありません");
     if (!Array.isArray(q.choices) || q.choices.length !== 3) return bad("choices（こたえ）は3つにしてください");

@@ -14,7 +14,8 @@
   ];
 
   // マスの種類の名前（カードの上に出る）
-  var BADGES = { place: "めいしょ", lucky: "ラッキー", quiz: "クイズ", happening: "ハプニング", move: "すすむ・もどる", toki: "レア！", unknown: "？" };
+  var BADGES = { place: "めいしょ", lucky: "ラッキー", quiz: "クイズ", happening: "ハプニング", move: "すすむ・もどる", toki: "レア！", unknown: "？",
+    card: "カード", rival: "かけひき", fork: "分かれ道", dice2: "サイコロ2こ" };
 
   var GOAL_BONUS = [150, 120, 80, 50]; // 1着・2着・3着・4着
   var TOKI_MAX = 2;       // 野生のトキは 1人 2回まで
@@ -40,19 +41,55 @@
     return sq.yomi ? "<ruby>" + esc(sq.name) + "<rt>" + esc(sq.yomi) + "</rt></ruby>" : esc(sq.name);
   }
 
-  var checked = checkSquares(window.SQUARES);
-  var squares = checked.squares;
-  var checkedEvents = checkEvents(window.EVENTS, squares);
-  var events = checkedEvents.events;
-  var checkedQuizzes = checkQuizzes(window.QUIZZES);
-  var quizzes = checkedQuizzes.quizzes;
-  // 海岸に近いマス（海岸線から 約1km 以内）
-  var COAST_KM = 1.0;
-  var coastal = (squares || []).map(function (s) { return Roads.coastDistanceKm(s.lat, s.lng) <= COAST_KM; });
-  var setup = { count: 2, players: [0, 1, 2, 3].map(function (i) { return { name: "", koma: i }; }) };
+  // ---------- モード（こども・おとな）ごとのデータ ----------
+  // おとなモードは、こどもモードのイベント・クイズに data/adult/ のものを足して使う
+  var COAST_KM = 1.0; // 海岸に近いマス（海岸線から 約1km 以内）
+  var HAND_MAX = 3;   // カードは 1人 3まいまで
+
+  function buildMode(rawSquares, rawEvents, quizzes, quizProblems, file, label) {
+    var cs = checkSquares(rawSquares, file, label);
+    var ce = checkEvents(rawEvents, cs.squares, label);
+    return {
+      rawSquares: rawSquares, squares: cs.squares, events: ce.events, quizzes: quizzes,
+      coastal: (cs.squares || []).map(function (s) { return Roads.coastDistanceKm(s.lat, s.lng) <= COAST_KM; }),
+      problems: cs.problems.concat(ce.problems, quizProblems)
+    };
+  }
+  function mergeEvents(a, b) {
+    a = a || {};
+    b = b || {};
+    var out = { wildToki: a.wildToki };
+    ["places", "lucky", "happening", "move", "fixed", "cards", "rival"].forEach(function (k) {
+      out[k] = (Array.isArray(a[k]) ? a[k] : []).concat(Array.isArray(b[k]) ? b[k] : []);
+    });
+    return out;
+  }
+  var kidsQuizzes = checkQuizzes(window.QUIZZES);
+  var adultQuizzes = checkQuizzes(window.ADULT_QUIZZES, "data/adult/quizzes.js");
+  var MODES = {
+    kids: buildMode(window.SQUARES, window.EVENTS, kidsQuizzes.quizzes, kidsQuizzes.problems, "data/squares.js", ""),
+    adult: buildMode(window.ADULT_SQUARES, mergeEvents(window.EVENTS, window.ADULT_EVENTS),
+      kidsQuizzes.quizzes.concat(adultQuizzes.quizzes), adultQuizzes.problems, "data/adult/squares.js", "おとなモードの ")
+  };
+
+  // いま遊んでいるモードのデータ（setMode で切りかえる）
+  var mode, squares, events, quizzes, coastal;
+  function setMode(key) {
+    mode = key;
+    var m = MODES[key];
+    squares = m.squares;
+    events = m.events;
+    quizzes = m.quizzes;
+    coastal = m.coastal;
+    document.body.classList.toggle("mode-adult", key === "adult");
+  }
+  setMode("kids");
+  function isAdult() { return mode === "adult"; }
+
+  var setup = { count: 2, mode: "kids", players: [0, 1, 2, 3].map(function (i) { return { name: "", koma: i }; }) };
   var game = null;
   var map = null;
-  var dice = { x: 0, y: 0 };
+  var diceState = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
 
   // あとで止められるタイマー（「つぎへ」が早く押されたときや、やり直しのときに止める）
   var timers = [];
@@ -105,6 +142,19 @@
       cb.appendChild(b);
     });
 
+    // モード：こども（これまでの すごろく）／おとな（分かれ道・カード・かけひき）
+    var mb = $("mode-buttons");
+    mb.innerHTML = "";
+    [["kids", "こども", "40マス・5分くらい"], ["adult", "おとな", "56マス・分かれ道・カード・かけひき"]].forEach(function (m) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "mode-button mode-" + m[0] + (setup.mode === m[0] ? " selected" : "");
+      b.disabled = !MODES[m[0]].squares;
+      b.innerHTML = "<b>" + m[1] + "</b><small>" + m[2] + "</small>";
+      b.addEventListener("click", function () { Sound.play("click"); setup.mode = m[0]; renderSetup(); });
+      mb.appendChild(b);
+    });
+
     // 人数をふやしたときにコマがかぶったら、あいているコマにする
     var used = [];
     for (var i = 0; i < setup.count; i++) {
@@ -142,28 +192,37 @@
       box.appendChild(row);
     });
 
-    $("start-button").disabled = !squares;
+    $("start-button").disabled = !MODES[setup.mode].squares;
   }
 
   // ---------- ゲーム ----------
 
   function startGame() {
-    if (!squares) return;
+    if (!MODES[setup.mode].squares) return;
+    setMode(setup.mode);
     Sound.unlock();
     Sound.play("click");
     clearTimers();
-    game = { players: [], turn: 0, finished: 0, busy: false };
+    bags = {};
+    game = { players: [], turn: 0, finished: 0, busy: false, doubleNow: false };
     setup.players.slice(0, setup.count).forEach(function (p, i) {
       game.players.push({
         name: p.name.trim() || "プレイヤー" + (i + 1),
         koma: KOMA[p.koma],
-        pos: 0,           // 進んだマスの数（squares.length でゴール）
+        pos: 0,           // いるマスの id
+        trail: [],        // 通ってきたマス（もどるときに使う）
+        home: false,      // 一周して 両津港に もどった
         points: 0,
         shown: 0,         // スコアボードに出しているポイント（カウントアップのため）
         finishOrder: null, // ゴールした順番（0 = 1着）
         seasick: false,   // 船よい：つぎの番で すすむマスが 1 へる
         tokiUp: false,    // I♥佐渡：野生のトキに 会える かくりつが 上がる
-        tokiCount: 0      // 野生のトキに 会った回数（1人 2回まで）
+        tokiCount: 0,     // 野生のトキに 会った回数（1人 2回まで）
+        // ここから おとなモード
+        cards: [],        // 手札（3まいまで）
+        twoDice: false,   // つぎの番は サイコロ2こ
+        boost: 0,         // つぎの番は 出た目に たす
+        double: false     // つぎの番で 止まったマスの ポイントが 2ばい
       });
     });
 
@@ -184,11 +243,17 @@
     banner.style.background = p.koma.color;
     var done = p.finishOrder !== null;
     $("turn-text").innerHTML = komaIcon(p.koma, 52) + "<span>" + esc(p.name) + "さんの 番" + (done ? "<small class='turn-done'>ゴールずみ</small>" : "") + "</span>";
-    $("roll-button").innerHTML = done ? "サイコロを ふる<small>出た目 × " + WAITING_BONUS + "てん（1は −10）</small>" : "サイコロを ふる";
+    var notes = [];
+    if (!done && p.twoDice) notes.push("サイコロ2こ");
+    if (!done && p.boost) notes.push("出た目 +" + p.boost);
+    if (!done && p.double) notes.push("ポイント2ばい");
+    $("roll-button").innerHTML = done ? "サイコロを ふる<small>出た目 × " + WAITING_BONUS + "てん（1は −10）</small>"
+      : "サイコロを ふる" + (notes.length ? "<small>" + notes.join("・") + "</small>" : "");
     banner.classList.remove("turn-pop");
     void banner.offsetWidth;
     banner.classList.add("turn-pop");
     renderScoreboard();
+    renderHand();
     $("roll-button").disabled = game.busy;
     // 地図で何かあっても、ゲームは止めない
     try {
@@ -212,7 +277,8 @@
         (p.seasick ? '<em class="sb-tag sick">ふなよい</em>' : "") +
         (p.tokiUp ? '<em class="sb-tag toki">I♥さど</em>' : "") + "</span>" +
         '<span class="sb-points" id="sb-points-' + i + '">' + p.shown + "<small>てん</small></span>" +
-        '<span class="sb-rank">' + currentRank(p) + "ばん</span></li>";
+        '<span class="sb-rank">' + currentRank(p) + "ばん" +
+        (isAdult() ? '<em class="sb-tag cards">カード ' + p.cards.length + "まい</em>" : "") + "</span></li>";
     }).join("");
   }
 
@@ -228,62 +294,66 @@
       html += "</div>";
     }
     $("dice").innerHTML = html;
+    $("dice2").innerHTML = html;
   }
 
-  // 目 n が上の面に来るように、何回転かしてから止める
-  function spinDiceTo(n) {
-    var f = DICE_FACE[n];
-    dice.x = Math.ceil((dice.x + 720) / 360) * 360 + f[0];
-    dice.y = Math.ceil((dice.y + 1080) / 360) * 360 + f[1];
-    $("dice").style.transform = "rotateX(" + dice.x + "deg) rotateY(" + dice.y + "deg)";
+  // 目 n が上の面に来るように、何回転かしてから止める（k = 1 は 2こ目のサイコロ）
+  function spinDiceTo(n, k) {
+    var f = DICE_FACE[n], d = diceState[k || 0];
+    d.x = Math.ceil((d.x + 720) / 360) * 360 + f[0];
+    d.y = Math.ceil((d.y + 1080) / 360) * 360 + f[1];
+    $(k ? "dice2" : "dice").style.transform = "rotateX(" + d.x + "deg) rotateY(" + d.y + "deg)";
   }
 
-  // サイコロを転がして、止まった目を done(n) にわたす
-  function rollDice(done) {
+  // サイコロを転がして、止まった目を done(n) にわたす。two のときは 2こ ふって done(n, m)
+  function rollDice(done, two) {
     var n = 1 + Math.floor(Math.random() * 6);
-    var scene = $("dice-scene");
-    scene.classList.remove("landed");
-    scene.classList.add("rolling");
+    var m = 1 + Math.floor(Math.random() * 6);
+    $("dice-scene2").hidden = !two;
+    var scenes = two ? [$("dice-scene"), $("dice-scene2")] : [$("dice-scene")];
+    scenes.forEach(function (s) { s.classList.remove("landed"); s.classList.add("rolling"); });
     Sound.play("dice");
-    spinDiceTo(n);
+    spinDiceTo(n, 0);
+    if (two) spinDiceTo(m, 1);
     later(function () {
-      scene.classList.remove("rolling");
-      scene.classList.add("landed");
+      scenes.forEach(function (s) { s.classList.remove("rolling"); s.classList.add("landed"); });
       Sound.play("diceStop");
-      done(n);
+      done(n, m);
     }, DICE_MS);
   }
 
-  // pos から先、n マスぶんのマスの番号（ゴールと「かならず止まる」マスで切る）。カメラ合わせに使う
+  // マス i から 進めるマス（分かれ道なら 2つ以上。0 はゴール）
+  function nextOf(i) { return squareNexts(squares, i); }
+
+  // pos から先、n マスぶんのマスの番号（ゴール・「かならず止まる」マス・分かれ道で切る）。カメラ合わせに使う
   function aheadOf(pos, n) {
-    var list = [pos % squares.length];
+    var list = [pos];
+    var q = pos;
     for (var k = 1; k <= n; k++) {
-      var q = pos + k;
-      if (q >= squares.length) { list.push(0); break; }
+      var nx = nextOf(q);
+      if (nx.length > 1) { list = list.concat(nx); break; }
+      q = nx[0];
       list.push(q);
-      if (squares[q].stop) break;
+      if (q === 0 || squares[q].stop) break;
     }
     return list;
-  }
-
-  // n マス進むと、どこまで行けるか（かならず止まるマスとゴールで止まる）
-  function stepsUntilStop(pos, n) {
-    for (var k = 1; k <= n; k++) {
-      if (pos + k >= squares.length || squares[pos + k].stop) return k;
-    }
-    return n;
   }
 
   function roll() {
     if (!game || game.busy) return;
     game.busy = true;
     $("roll-button").disabled = true;
+    renderHand();
     // サイコロをふったら地図は動かせなくする
     map.setInteractive(false);
     $("dice-result").textContent = "";
+    var p = cur();
 
-    // ゴールした人：コマは動かさず、出た目 × 10てん
-    if (cur().finishOrder !== null) {
+    // ゴールした人：コマは動かさず、出た目 × 5てん
+    if (p.finishOrder !== null) {
+      p.twoDice = false;
+      p.boost = 0;
+      p.double = false;
       rollDice(function (n) {
         $("dice-result").innerHTML = n === 1 ? "<b>1</b> … −10てん" : "<b>" + n + "</b> × " + WAITING_BONUS + "てん！";
         showBigNumber(n, n === 1 ? "ざんねん… −10てん" : "× " + WAITING_BONUS + "てん！");
@@ -292,23 +362,57 @@
       return;
     }
 
-    rollDice(function (n) {
-      var p = cur();
-      var steps = n;
-      var label = "マス すすむ！";
-      // 船よい：1 へる（1が出たときは 1マス）
-      if (p.seasick) {
-        p.seasick = false;
-        steps = Math.max(1, n - 1);
-        label = "− 1 ＝ " + steps + "マス（ふなよい）";
-        renderScoreboard();
-      }
-      var go = stepsUntilStop(p.pos, steps);
-      $("dice-result").innerHTML = "<b>" + n + "</b> " + (steps !== n ? "→ " + steps + "マス" : "マス すすむ！");
-      showBigNumber(n, label);
-      // これから通るマスが ぜんぶ見えるように カメラを合わせる
-      map.showSquares(aheadOf(p.pos, go));
-      later(function () { walk(go, arrive, go < steps); }, 900);
+    var two = p.twoDice;
+    p.twoDice = false;
+    rollDice(function (n, m) {
+      if (!two) return moveBy(n);
+      // サイコロ2こ：好きな方の目を えらぶ
+      pickDie(n, m, moveBy);
+    }, two);
+  }
+
+  // 出た目 n で進む（船よい・おいかぜを 足し引きする）
+  function moveBy(n) {
+    var p = cur();
+    var steps = n;
+    var calc = [], why = [];
+    // 船よい：1 へる（1が出たときは 1マス）
+    if (p.seasick) {
+      p.seasick = false;
+      steps = Math.max(1, steps - 1);
+      calc.push("− 1");
+      why.push("ふなよい");
+    }
+    if (p.boost) {
+      steps += p.boost;
+      calc.push("+ " + p.boost);
+      why.push("おいかぜ");
+      p.boost = 0;
+    }
+    var label = calc.length ? calc.join(" ") + " ＝ " + steps + "マス（" + why.join("・") + "）" : "マス すすむ！";
+    renderScoreboard();
+    $("dice-result").innerHTML = "<b>" + n + "</b> " + (steps !== n ? "→ " + steps + "マス" : "マス すすむ！");
+    showBigNumber(n, label);
+    // これから通るマスが ぜんぶ見えるように カメラを合わせる
+    map.showSquares(aheadOf(p.pos, steps));
+    later(function () { walk(steps, arrive); }, 900);
+  }
+
+  // サイコロ2この どちらを 使うか えらぶ
+  function pickDie(n, m, fn) {
+    $("dice-result").innerHTML = "<b>" + n + "</b> と <b>" + m + "</b>";
+    openCard({
+      type: "dice2", title: "どっちの 目を 使う？",
+      body: '<div class="die-choices">' + [n, m].map(function (v) {
+        return '<button type="button" class="die-choice" data-v="' + v + '">' + v + "</button>";
+      }).join("") + "</div>"
+    });
+    Array.prototype.forEach.call($("card-body").querySelectorAll(".die-choice"), function (b) {
+      b.addEventListener("click", function () {
+        Sound.play("click");
+        hideCard();
+        fn(Number(b.dataset.v));
+      }, { once: true });
     });
   }
 
@@ -324,35 +428,74 @@
   // ---------- コマの移動 ----------
 
   // steps マス進む（マイナスならもどる）。おわったら done
-  // 進むときは、ゴールと「かならず止まる」マスで止まる。もどるときはスタートの次のマスまで
-  // cut：出た目より手前で止めたとき true（「ここで ストップ！」を出す）
-  function walk(steps, done, cut) {
+  // 進むときは、ゴールと「かならず止まる」マスで止まり、分かれ道では どちらに行くか えらぶ。
+  // もどるときは 来た道を もどる（スタートまでは もどらない）
+  function walk(steps, done) {
     var p = cur();
     var i = game.turn;
     var dir = steps > 0 ? 1 : -1;
     var left = Math.abs(steps);
     var hop = 0;
     map.setInteractive(false);
-    (function step() {
-      if (left === 0 || p.pos >= squares.length || p.pos + dir < 1) {
-        later(done, 350);
-        return;
-      }
-      p.pos += dir;
+
+    function moveTo(idx) {
+      p.pos = idx;
       left--;
-      var idx = p.pos % squares.length;
       map.moveKoma(i, idx);
       map.follow(idx);
       Sound.play("hop", dir > 0 ? hop++ : -(hop++));
-      if (dir > 0 && squares[idx].stop && (left > 0 || (cut && left === 0))) {
+    }
+    function forward(to) {
+      p.trail.push(p.pos);
+      moveTo(to);
+      if (to === 0) {
+        p.home = true; // 一周して 両津港に もどった＝ゴール
         left = 0;
-        showStopNote(squares[idx]);
+      } else {
+        if (squares[to].stop && left > 0) {
+          left = 0;
+          showStopNote(squares[to]);
+        }
+        // 名所を通りすぎるときは、小さなカードを出す
+        if (left > 0 && squares[to].type === "place") showPassCard(squares[to]);
       }
-      // 名所を通りすぎるときは、小さなカードを出す
-      var passing = left > 0 && p.pos < squares.length;
-      if (passing && squares[idx].type === "place") showPassCard(squares[idx]);
       later(step, STEP_MS);
-    })();
+    }
+    function step() {
+      if (left === 0 || p.home) return later(done, 350);
+      if (dir < 0) {
+        var back = p.trail[p.trail.length - 1];
+        if (back === undefined || back === 0) return later(done, 350);
+        p.trail.pop();
+        moveTo(back);
+        return later(step, STEP_MS);
+      }
+      var nx = nextOf(p.pos);
+      if (nx.length > 1) return chooseBranch(p.pos, left, forward);
+      forward(nx[0]);
+    }
+    step();
+  }
+
+  // 分かれ道：どちらに 行くか えらぶ
+  function chooseBranch(idx, left, fn) {
+    var sq = squares[idx];
+    map.showSquares([idx].concat(sq.branch.map(function (b) { return b.to; })));
+    Sound.play("reveal");
+    openCard({
+      type: "fork", title: "どっちに 行く？", text: "のこり " + left + "マス",
+      body: '<div class="fork-choices">' + sq.branch.map(function (b, k) {
+        return '<button type="button" class="fork-choice" data-k="' + k + '"><b>' + ruby(b.label) + "</b>" +
+          (b.note ? "<small>" + ruby(b.note) + "</small>" : "") + "</button>";
+      }).join("") + "</div>"
+    });
+    Array.prototype.forEach.call($("card-body").querySelectorAll(".fork-choice"), function (b) {
+      b.addEventListener("click", function () {
+        Sound.play("click");
+        hideCard();
+        fn(sq.branch[Number(b.dataset.k)].to);
+      }, { once: true });
+    });
   }
 
   function showPassCard(sq) {
@@ -435,15 +578,20 @@
   function arrive() {
     var p = cur();
     map.setInteractive(true);
-    map.focus(p.pos % squares.length);
+    map.focus(p.pos);
+    // ポイント2ばいカード：この番で止まったマスで 使う
+    game.doubleNow = p.double;
+    p.double = false;
 
-    if (p.pos >= squares.length) return goalEvent(p);
+    if (p.home) return goalEvent(p);
     var sq = squares[p.pos];
     if (sq.type === "place") return placeEvent(sq);
     if (sq.event && events.fixed[sq.event]) return fixedEvent(sq, events.fixed[sq.event]);
     if (sq.type === "quiz") return quizEvent();
     if (sq.type === "move") return moveEvent(drawFor("move", p.pos));
     if (sq.type === "lucky" || sq.type === "happening") return simpleEvent(sq.type, drawFor(sq.type, p.pos));
+    if (sq.type === "card") return cardEvent();
+    if (sq.type === "rival") return rivalEvent();
     openCard({ type: "unknown", title: "？", text: "このマスの データに もんだいが あります" });
     awardPoints(0);
   }
@@ -456,7 +604,7 @@
       type: "goal", badge: "ゴール", title: "ゴール！",
       text: (p.finishOrder + 1) + "着で " + ruby("{両津港|りょうつこう}") + "に もどってきた！ ゴールボーナス"
     });
-    awardPoints(GOAL_BONUS[p.finishOrder] || 0);
+    awardPoints(GOAL_BONUS[p.finishOrder] || 0, null, true);
   }
 
   // 名所：写真つきの大きなイベント。dice があればサイコロボーナス
@@ -482,6 +630,11 @@
     ev = ev || { title: BADGES[type], text: "", point: 0 };
     openCard({ type: type, title: ruby(ev.title), text: ruby(ev.text) });
     if (ev.bonus) return bonusDice(ev);
+    // おまもりカード：ハプニング（マイナス・船よい）を ふせぐ
+    if (type === "happening" && (ev.point < 0 || ev.effect) && useGuard(cur())) {
+      $("card-body").innerHTML = '<div class="guard-note">おまもりで ふせいだ！</div>';
+      return awardPoints(0);
+    }
     applyEffect(ev);
     awardPoints(ev.point);
   }
@@ -516,6 +669,7 @@
     var p = cur();
     if (ev.effect === "seasick") p.seasick = true;
     if (ev.effect === "tokiUp") p.tokiUp = true;
+    if (ev.effect === "twoDice") p.twoDice = true;
   }
 
   // クイズ：3択。正解でポイント、不正解は解説を出す
@@ -563,13 +717,281 @@
     });
     cardButton(forward ? "すすむ" : "もどる", function () {
       hideCard();
-      var p = cur();
-      var n = forward ? stepsUntilStop(p.pos, ev.steps) : ev.steps;
-      walk(n, function () {
-        if (cur().pos >= squares.length) return arrive();
+      walk(ev.steps, function () {
+        if (cur().home) return arrive();
         map.setInteractive(true);
         later(endTurn, 500);
-      }, forward && n < ev.steps);
+      });
+    });
+  }
+
+  // ---------- おとなモード：カード ----------
+
+  // 山札（count の まいすうずつ 入れる）
+  function cardDeck() {
+    var deck = [];
+    events.cards.forEach(function (c) { for (var k = 0; k < c.count; k++) deck.push(c); });
+    return deck;
+  }
+
+  function cardHtml(c) {
+    return '<span class="game-card kind-' + c.kind + '"><b>' + esc(c.title) + "</b><small>" + ruby(c.text) + "</small></span>";
+  }
+
+  // おまもりを持っていたら 1まい 使って true
+  function useGuard(p) {
+    for (var k = 0; k < p.cards.length; k++) {
+      if (p.cards[k].kind === "guard") {
+        p.cards.splice(k, 1);
+        renderScoreboard();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // カードマス：1まい 引く。手札が いっぱいなら 交換するか えらぶ
+  function cardEvent() {
+    var p = cur();
+    var c = draw("cards", cardDeck());
+    if (!c) {
+      openCard({ type: "card", title: "カードが ありません" });
+      return nextButton();
+    }
+    Sound.play("reveal");
+    openCard({ type: "card", title: "カードを 引いた！", body: '<div class="drawn">' + cardHtml(c) + "</div>" });
+    if (p.cards.length < HAND_MAX) {
+      p.cards.push(c);
+      renderScoreboard();
+      renderHand();
+      return nextButton();
+    }
+    $("card-body").insertAdjacentHTML("beforeend",
+      '<p class="hand-full">カードは ' + HAND_MAX + "まいまで。どれと 交換する？</p>" +
+      '<div class="swap-choices">' + p.cards.map(function (h, k) {
+        return '<button type="button" class="swap-choice" data-k="' + k + '">' + cardHtml(h) + "</button>";
+      }).join("") + "</div>");
+    Array.prototype.forEach.call($("card-body").querySelectorAll(".swap-choice"), function (b) {
+      b.addEventListener("click", function () {
+        Sound.play("click");
+        p.cards[Number(b.dataset.k)] = c;
+        $("card-body").innerHTML = '<div class="drawn">' + cardHtml(c) + '</div><p class="hand-full">交換した！</p>';
+        renderScoreboard();
+        renderHand();
+        nextButton();
+      }, { once: true });
+    });
+    cardButton("交換しない", function () { nextButton(); });
+  }
+
+  // 手札（いまの番の人の カード）。サイコロを ふる前に クリックで 使う
+  function renderHand() {
+    if (!isAdult() || !game) return;
+    var p = cur();
+    var box = $("hand");
+    if (!p.cards.length) {
+      box.innerHTML = '<p class="hand-empty">カードマスで 引けるよ</p>';
+      return;
+    }
+    box.innerHTML = "";
+    p.cards.forEach(function (c, k) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "hand-card kind-" + c.kind;
+      b.innerHTML = "<b>" + esc(c.title) + "</b><small>" + (c.kind === "guard" ? "持っているだけで ふせぐ" : ruby(c.text)) + "</small>";
+      b.disabled = game.busy || !canUse(p, c);
+      b.addEventListener("click", function () { useCard(k); });
+      box.appendChild(b);
+    });
+  }
+
+  function canUse(p, c) {
+    if (c.kind === "guard") return false;
+    if (p.finishOrder !== null) return c.kind === "steal"; // ゴールした人は よこどりだけ
+    if (c.kind === "twoDice") return !p.twoDice;
+    if (c.kind === "boost") return !p.boost;
+    if (c.kind === "double") return !p.double;
+    if (c.kind === "swap") return swapTargets(p).length > 0;
+    return true;
+  }
+
+  function others(p) { return game.players.filter(function (q) { return q !== p; }); }
+  function swapTargets(p) { return others(p).filter(function (q) { return q.finishOrder === null; }); }
+
+  function useCard(k) {
+    var p = cur(), c = p.cards[k];
+    if (!c || game.busy || !canUse(p, c)) return;
+    Sound.play("click");
+
+    // 自分に つかうカードは、すぐ きく
+    if (c.kind === "twoDice" || c.kind === "boost" || c.kind === "double") {
+      p.cards.splice(k, 1);
+      if (c.kind === "twoDice") p.twoDice = true;
+      if (c.kind === "boost") p.boost = c.steps;
+      if (c.kind === "double") p.double = true;
+      flashCard('<span class="pass-star card-star"></span><div><small>カードを 使った！</small><b>' + esc(c.title) + "</b></div>");
+      Sound.play("reveal");
+      render();
+      return;
+    }
+
+    // 相手を えらぶカード（いれかえ・よこどり）
+    game.busy = true;
+    render();
+    var back = function () { game.busy = false; render(); };
+    openCard({ type: "card", badge: "カード", title: esc(c.title), text: ruby(c.text) });
+    pickPlayer(c.kind === "swap" ? swapTargets(p) : others(p), "やめる", function (q) {
+      if (!q) { hideCard(); return back(); }
+      p.cards.splice(p.cards.indexOf(c), 1);
+      renderHand();
+      if (useGuard(q)) return blocked(q, back);
+      if (c.kind === "swap") return swapPlaces(p, q, function () { nextButton(back); });
+      takePoints(q, c.point);
+      awardPoints(c.point, back, true);
+    });
+  }
+
+  // 相手の おまもりで ふせがれた
+  function blocked(q, then) {
+    $("card-body").innerHTML = '<div class="guard-note">' + esc(q.name) + "さんの おまもりで ふせがれた！</div>";
+    Sound.play("minus");
+    nextButton(then);
+  }
+
+  // 相手を えらぶ。skip を書くと「えらばない」ボタンも出す。fn(えらんだ人 か null)
+  function pickPlayer(list, skip, fn) {
+    if (!list.length) {
+      $("card-body").innerHTML = '<p class="hand-full">えらべる 人が いない…</p>';
+      return fn(null);
+    }
+    $("card-body").innerHTML = '<p class="pick-title">だれに する？</p><div class="pick-choices">' + list.map(function (q, k) {
+      return '<button type="button" class="pick-choice" data-k="' + k + '">' + komaIcon(q.koma, 36) +
+        "<b>" + esc(q.name) + "</b><small>" + q.points + "てん</small></button>";
+    }).join("") + "</div>";
+    var done = false;
+    Array.prototype.forEach.call($("card-body").querySelectorAll(".pick-choice"), function (b) {
+      b.addEventListener("click", function () {
+        if (done) return;
+        done = true;
+        Sound.play("click");
+        Array.prototype.forEach.call($("card-body").querySelectorAll(".pick-choice"), function (x) {
+          x.disabled = true;
+          x.classList.toggle("picked", x === b);
+        });
+        $("card-actions").innerHTML = "";
+        fn(list[Number(b.dataset.k)]);
+      });
+    });
+    if (skip) cardButton(skip, function () { if (!done) { done = true; fn(null); } });
+  }
+
+  // 相手の ポイントを へらす（もらう側は awardPoints で ふやす）
+  function takePoints(q, amount) {
+    q.points -= amount;
+    q.shown = q.points;
+    renderScoreboard();
+  }
+
+  // 2人の いる場所を 入れかえる（動いた先の マスの イベントは 起こさない）
+  function swapPlaces(p, q, then) {
+    var a = game.players.indexOf(p), b = game.players.indexOf(q);
+    var pos = p.pos, trail = p.trail;
+    p.pos = q.pos;
+    p.trail = q.trail;
+    q.pos = pos;
+    q.trail = trail;
+    map.moveKoma(a, p.pos);
+    map.moveKoma(b, q.pos);
+    map.showSquares([p.pos, q.pos]);
+    Sound.play("pass");
+    $("card-body").innerHTML = '<div class="guard-note ok">' + esc(p.name) + "さんと " + esc(q.name) + "さんが 入れかわった！</div>";
+    then();
+  }
+
+  // ---------- おとなモード：かけひきマス ----------
+
+  function rivalEvent() {
+    var p = cur();
+    var ev = draw("rival", events.rival);
+    if (!ev) {
+      openCard({ type: "rival", title: "かけひき" });
+      return nextButton();
+    }
+    openCard({ type: "rival", title: ruby(ev.title), text: ruby(ev.text) });
+    if (ev.kind === "swap") {
+      return pickPlayer(swapTargets(p), "入れかえない", function (q) {
+        if (!q) return nextButton();
+        if (useGuard(q)) return blocked(q);
+        swapPlaces(p, q, function () { nextButton(); });
+      });
+    }
+    if (ev.kind === "steal") {
+      return pickPlayer(others(p), null, function (q) {
+        if (!q) return nextButton();
+        if (useGuard(q)) return blocked(q);
+        takePoints(q, ev.point);
+        $("card-body").innerHTML = '<div class="guard-note ok">' + esc(q.name) + "さんから もらった！</div>";
+        awardPoints(ev.point, null, true);
+      });
+    }
+    if (ev.kind === "leader") {
+      var top = others(p).sort(function (a, b) { return b.points - a.points; })[0];
+      if (!top || top.points <= p.points) {
+        $("card-body").innerHTML = '<div class="guard-note">あなたが いちばん！ もらえる 人が いない</div>';
+        return awardPoints(0, null, true);
+      }
+      takePoints(top, ev.point);
+      $("card-body").innerHTML = '<div class="guard-note ok">' + esc(top.name) + "さんから もらった！</div>";
+      return awardPoints(ev.point, null, true);
+    }
+    if (ev.kind === "share") {
+      var list = others(p);
+      list.forEach(function (q) { q.points += ev.point; q.shown = q.points; });
+      $("card-body").innerHTML = '<div class="guard-note">' + list.map(function (q) { return esc(q.name) + "さん +" + ev.point; }).join("　") + "</div>";
+      renderScoreboard();
+      return awardPoints(-ev.point * list.length, null, true);
+    }
+    if (ev.kind === "duel") {
+      return pickPlayer(others(p), null, function (q) {
+        if (!q) return nextButton();
+        duel(p, q, ev.point);
+      });
+    }
+    nextButton();
+  }
+
+  // サイコロ勝負：1回ずつ ふって、大きい目の人が 相手から もらう
+  function duel(p, q, pts) {
+    function side(x, v, id) {
+      return '<div class="duel-side">' + komaIcon(x.koma, 40) + "<b>" + esc(x.name) + '</b><span id="' + id + '">' + v + "</span></div>";
+    }
+    $("card-body").innerHTML = '<div class="duel">' + side(p, "?", "duel-a") + '<span class="duel-vs">VS</span>' + side(q, "?", "duel-b") + "</div>";
+    cardButton(esc(p.name) + "さんが ふる", function () {
+      $("card-actions").innerHTML = "";
+      rollDice(function (a) {
+        $("duel-a").textContent = a;
+        showBigNumber(a, esc(p.name) + "さん");
+        cardButton(esc(q.name) + "さんが ふる", function () {
+          $("card-actions").innerHTML = "";
+          rollDice(function (b) {
+            $("duel-b").textContent = b;
+            showBigNumber(b, esc(q.name) + "さん");
+            var result = document.createElement("div");
+            result.className = "quiz-result " + (a > b ? "ok" : "ng");
+            result.textContent = a === b ? "ひきわけ！" : (a > b ? p.name : q.name) + "さんの 勝ち！";
+            $("card-body").appendChild(result);
+            if (a === b) return nextButton();
+            if (a > b) {
+              takePoints(q, pts);
+              return awardPoints(pts, null, true);
+            }
+            q.points += pts;
+            q.shown = q.points;
+            renderScoreboard();
+            awardPoints(-pts, null, true);
+          });
+        });
+      });
     });
   }
 
@@ -577,6 +999,7 @@
 
   function endTurn() {
     var p = cur();
+    game.doubleNow = false; // 2ばいは 止まったマスの イベントだけ（野生のトキには きかない）
     var t = events.wildToki;
     var chance = t ? (p.tokiUp ? Math.max(0.1, t.chance * 2) : t.chance) : 0;
     if (p.tokiCount >= TOKI_MAX) chance = 0;
@@ -621,14 +1044,34 @@
 
   // ポイントを出す：カウントアップ → スコアボードへ飛ばす → スコアボードもカウントアップ。「つぎへ」も出す
   // then：「つぎへ」を押したあとに することは（ふつうは endTurn：野生のトキ → 次の人）
-  function awardPoints(raw, then) {
+  // plain：ポイント2ばいカードを 使わない（ゴールボーナスや カード・かけひきの やりとり）
+  function awardPoints(raw, then, plain) {
     var player = game.turn;
+    var doubled = false;
+    if (game.doubleNow && raw > 0 && !plain) {
+      raw *= 2;
+      doubled = true;
+      game.doubleNow = false;
+    }
     var delta = addPoints(cur(), raw);
     var sign = delta > 0 ? "plus" : delta < 0 ? "minus" : "zero";
     var box = $("card-points");
     box.hidden = false;
     box.className = "card-points " + sign;
-    box.innerHTML = '<span id="card-num">' + fmt(0, delta) + "</span><small>てん</small>";
+    box.innerHTML = '<span id="card-num">' + fmt(0, delta) + "</span><small>てん</small>" + (doubled ? '<em class="x2">2ばい！</em>' : "");
+    nextButton(then);
+
+    later(function () {
+      countUp($("card-num"), 0, delta, 600, function (v) { return fmt(v, delta); }, function () {
+        Sound.play(sign);
+        if (delta === 0) return;
+        later(function () { flyPoints(player, delta); }, 350);
+      });
+    }, 400);
+  }
+
+  // 「つぎへ」ボタン。then：押したあとに することは（ふつうは endTurn：野生のトキ → 次の人）
+  function nextButton(then) {
     $("card-actions").innerHTML = "";
     cardButton("つぎへ", function () {
       finishScoreAnimations();
@@ -638,14 +1081,6 @@
     // 画面が低いときも、こたえ・ポイント・「つぎへ」が 見えるように 下まで スクロール
     var card = $("event-card");
     requestAnimationFrame(function () { card.scrollTop = card.scrollHeight; });
-
-    later(function () {
-      countUp($("card-num"), 0, delta, 600, function (v) { return fmt(v, delta); }, function () {
-        Sound.play(sign);
-        if (delta === 0) return;
-        later(function () { flyPoints(player, delta); }, 350);
-      });
-    }, 400);
   }
   function fmt(v, delta) {
     if (delta > 0) return "+" + v;
@@ -710,6 +1145,7 @@
 
   function nextTurn() {
     game.busy = false;
+    game.doubleNow = false;
     $("dice-result").textContent = "";
     if (game.finished >= game.players.length) {
       later(showResults, 600);
@@ -821,7 +1257,8 @@
 
   // ---------- はじめる ----------
 
-  showProblems(checked.problems.concat(checkedEvents.problems, checkedQuizzes.problems));
+  // こども・おとな 両方の データの問題（同じ お知らせは 1回だけ）
+  showProblems(MODES.kids.problems.concat(MODES.adult.problems).filter(function (m, k, all) { return all.indexOf(m) === k; }));
   // タイトル画面と結果発表のかざり
   ["title-screen", "result-screen"].forEach(function (id) {
     $(id).insertAdjacentHTML("afterbegin", sadoSilhouette("bg-sado"));
@@ -870,7 +1307,7 @@
 
   // data/squares.js に書く1行（もとの書き方に、新しい lat・lng を入れる）
   function squareLine(i) {
-    var raw = (window.SQUARES && window.SQUARES[i]) || {};
+    var raw = (MODES[mode].rawSquares && MODES[mode].rawSquares[i]) || {};
     var sq = squares[i];
     var keys = ["id", "type", "name", "yomi", "lat", "lng", "event"];
     Object.keys(raw).forEach(function (k) { if (keys.indexOf(k) < 0) keys.push(k); });
@@ -878,7 +1315,7 @@
     keys.forEach(function (k) {
       var v = k === "lat" ? sq.lat : k === "lng" ? sq.lng : raw[k];
       if (v === undefined) return;
-      parts.push(k + ": " + (typeof v === "string" ? '"' + v + '"' : v));
+      parts.push(k + ": " + (typeof v === "object" ? JSON.stringify(v) : typeof v === "string" ? '"' + v + '"' : v));
     });
     return "{ " + parts.join(", ") + " },";
   }
@@ -898,5 +1335,9 @@
     }
   }
 
-  if (/[?&]edit=1/.test(location.search) && squares) startEdit();
+  // おとなモードのマスは ?edit=1&mode=adult
+  if (/[?&]edit=1/.test(location.search)) {
+    if (/[?&]mode=adult/.test(location.search)) setMode("adult");
+    if (squares) startEdit();
+  }
 })();
