@@ -35,14 +35,15 @@ var MapView = (function () {
   function squareHtml(s, i) {
     var inner = s.type === "start" ? SHIP : isBig(s) ? STAR : String(i);
     var html = '<div class="sq sq-' + s.type + (isBig(s) ? " sq-big" : "") + (s.stop ? " sq-stop" : "") + '"><span>' + inner + "</span></div>";
-    if (isBig(s)) {
-      // ハードモードは ふりがなを 付けない
+    // 売店は 名前と「ここでストップ」を出す
+    if (isBig(s) || s.type === "shop") {
+      // ふりがなは yomi を書いたマスだけ（ハードモードは 読み方が むずかしい 地名にだけ 書いてある）
       var adult = document.body.classList.contains("mode-adult");
-      var name = s.yomi && !adult ? "<ruby>" + esc(s.name) + "<rt>" + esc(s.yomi) + "</rt></ruby>" : esc(s.name);
+      var name = s.yomi ? "<ruby>" + esc(s.name) + "<rt>" + esc(s.yomi) + "</rt></ruby>" : esc(s.name);
       if (s.type === "start") name += "<small>スタート・ゴール</small>";
       if (s.stop) name += "<small class='stop-note'>" + (adult ? "ここでストップ" : "ここで ストップ") + "</small>";
       if (s.branch) name += "<small class='fork-note'>分かれ道</small>";
-      html += '<div class="sq-name">' + name + "</div>";
+      html += '<div class="sq-name' + (s.type === "shop" ? " sq-shop-name" : "") + '">' + name + "</div>";
     } else if (s.branch) {
       html += '<div class="sq-name sq-fork-name">分かれ道</div>';
     }

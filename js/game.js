@@ -21,11 +21,12 @@
   var BADGES_KIDS = { place: "めいしょ", lucky: "ラッキー", quiz: "クイズ", happening: "ハプニング", move: "すすむ・もどる", toki: "レア！", unknown: "？",
     card: "カード", rival: "かけひき", fork: "分かれ道", dice2: "サイコロ2こ" };
   var BADGES_ADULT = { place: "名所", lucky: "ラッキー", quiz: "クイズ", happening: "ハプニング", move: "進む・戻る", toki: "レア！", unknown: "？",
-    card: "カード", rival: "駆け引き", fork: "分かれ道", dice2: "サイコロ2個" };
+    card: "カード", rival: "駆け引き", fork: "分かれ道", dice2: "サイコロ2個", shop: "売店" };
   var BADGES = BADGES_KIDS;
 
   var GOAL_BONUS = [150, 120, 80, 50, 30, 20]; // 1着〜6着
-  var TOKI_MAX = 2;       // 野生のトキは 1人 2回まで
+  var TOKI_MAX = 3;       // 野生のトキは 1人 3回まで
+  var SECRET_WITHIN = 10; // 全員が ゴールまで この マス数 以内に なったら、次の番から ポイントを ひみつに する
   var WAITING_BONUS = 5;    // ゴールした人がサイコロをふったときの「出た目 × 5てん」
   var WAITING_ONE = -10;   // ただし 1 が出たら −10てん
   var STEP_MS = 300;   // 1マス進む時間
@@ -45,7 +46,7 @@
   }
 
   function placeName(sq) {
-    return sq.yomi && !isAdult() ? "<ruby>" + esc(sq.name) + "<rt>" + esc(sq.yomi) + "</rt></ruby>" : esc(sq.name);
+    return sq.yomi ? "<ruby>" + esc(sq.name) + "<rt>" + esc(sq.yomi) + "</rt></ruby>" : esc(sq.name);
   }
 
   // ---------- モード（イージー・ハード）ごとのデータ ----------
@@ -200,7 +201,9 @@
     setMode(setup.mode);
     clearTimers();
     bags = {};
-    game = { players: [], turn: 0, finished: 0, busy: false, doubleNow: false, history: [] };
+    game = { players: [], turn: 0, finished: 0, busy: false, doubleNow: false, history: [],
+      secret: false, // ポイントを ひみつに している
+      sold: {} };    // 売店で 売った カードの まいすう（kind ごと）
     setup.players.slice(0, setup.count).forEach(function (p, i) {
       game.players.push({
         name: p.name.trim() || "プレイヤー" + (i + 1),
@@ -213,7 +216,7 @@
         finishOrder: null, // ゴールした順番（0 = 1着）
         seasick: false,   // 船よい：つぎの番で すすむマスが 1 へる
         tokiUp: false,    // I♥佐渡：野生のトキに 会える かくりつが 上がる
-        tokiCount: 0,     // 野生のトキに 会った回数（1人 2回まで）
+        tokiCount: 0,     // 野生のトキに 会った回数（1人 3回まで）
         // ここから ハードモード
         cards: [],        // 手札（3まいまで）
         twoDice: false,   // つぎの番は サイコロ2こ
@@ -221,11 +224,11 @@
         double: false     // つぎの番で 止まったマスの ポイントが 2ばい
       });
     });
-    // ハードモード：さいしょに カードを 配る
+    // ハードモード：さいしょに カードを 配る（入れ替え以外から ランダム）
     if (isAdult()) {
       game.players.forEach(function (p) {
         for (var k = 0; k < START_CARDS; k++) {
-          var c = draw("cards", cardDeck());
+          var c = freeCard();
           if (c) p.cards.push(c);
         }
       });
@@ -250,11 +253,11 @@
     var done = p.finishOrder !== null;
     $("turn-text").innerHTML = komaIcon(p.koma, 52) + "<span>" + esc(p.name) + T("さんの 番", "さんの番") + (done ? "<small class='turn-done'>" + T("ゴールずみ", "ゴール済み") + "</small>" : "") + "</span>";
     var notes = [];
-    if (!done && p.twoDice) notes.push(T("サイコロ2こ", "サイコロ2個"));
+    if (p.twoDice) notes.push(T("サイコロ2こ", "サイコロ2個"));
     if (!done && p.boost) notes.push("出た目 +" + p.boost);
-    if (!done && p.double) notes.push(T("ポイント2ばい", "ポイント2倍"));
-    $("roll-button").innerHTML = done ? T("サイコロを ふる", "サイコロを振る") + "<small>出た目 × " + WAITING_BONUS + T("てん（1は −10）", "点（1は−10）") + "</small>"
-      : T("サイコロを ふる", "サイコロを振る") + (notes.length ? "<small>" + notes.join("・") + "</small>" : "");
+    if (p.double) notes.push(T("ポイント2ばい", "ポイント2倍"));
+    if (done) notes.unshift("出た目 × " + WAITING_BONUS + T("てん（1は −10）", "点（1は−10）"));
+    $("roll-button").innerHTML = T("サイコロを ふる", "サイコロを振る") + (notes.length ? "<small>" + notes.join("・") + "</small>" : "");
     banner.classList.remove("turn-pop");
     void banner.offsetWidth;
     banner.classList.add("turn-pop");
@@ -274,10 +277,15 @@
     return 1 + game.players.filter(function (q) { return q.shown > p.shown; }).length;
   }
 
+  // ポイントを ひみつに している ときは「？？？」
+  function pointsText(v) { return game.secret ? "？？？" : String(v); }
+
   function renderScoreboard() {
     // 5人・6人は 1行に つめる
     $("scoreboard").classList.toggle("many", game.players.length > 4);
     $("scoreboard").parentNode.classList.toggle("many", game.players.length > 4);
+    $("scoreboard").parentNode.querySelector("h2").innerHTML = "ポイント" +
+      (game.secret ? ' <small class="secret-note">' + T("ゴール まぢか！ ここからは ひみつ", "ゴール間近！ ここからは秘密") + "</small>" : "");
     $("scoreboard").innerHTML = game.players.map(function (p, i) {
       return '<li class="' + (i === game.turn ? "current" : "") + '" style="--pc:' + p.koma.color + '">' +
         komaIcon(p.koma, 40) +
@@ -285,8 +293,8 @@
         (p.finishOrder !== null ? '<em class="sb-goal">ゴール</em>' : "") +
         (p.seasick ? '<em class="sb-tag sick">' + T("ふなよい", "船酔い") + "</em>" : "") +
         (p.tokiUp ? '<em class="sb-tag toki">' + T("I♥さど", "I♥佐渡") + "</em>" : "") + "</span>" +
-        '<span class="sb-points" id="sb-points-' + i + '">' + p.shown + "<small>" + T("てん", "点") + "</small></span>" +
-        '<span class="sb-rank">' + currentRank(p) + T("ばん", "位") +
+        '<span class="sb-points' + (game.secret ? " secret" : "") + '" id="sb-points-' + i + '">' + pointsText(p.shown) + "<small>" + T("てん", "点") + "</small></span>" +
+        '<span class="sb-rank">' + (game.secret ? "？" : currentRank(p)) + T("ばん", "位") +
         (isAdult() ? '<em class="sb-tag cards">カード' + p.cards.length + "枚</em>" : "") + "</span></li>";
     }).join("");
   }
@@ -356,16 +364,22 @@
     $("dice-result").textContent = "";
     var p = cur();
 
-    // ゴールした人：コマは動かさず、出た目 × 5てん
+    // ゴールした人：コマは動かさず、出た目 × 5てん（サイコロ2個・ポイント2倍の カードも 使える）
     if (p.finishOrder !== null) {
+      var twoW = p.twoDice;
       p.twoDice = false;
       p.boost = 0;
+      game.doubleNow = p.double;
       p.double = false;
-      rollDice(function (n) {
+      var bonus = function (n) {
         $("dice-result").innerHTML = n === 1 ? "<b>1</b> … −10" + T("てん", "点") : "<b>" + n + "</b> × " + WAITING_BONUS + T("てん！", "点！");
         showBigNumber(n, n === 1 ? T("ざんねん… −10てん", "残念… −10点") : "× " + WAITING_BONUS + T("てん！", "点！"));
         later(function () { waitingBonus(n); }, 700);
-      });
+      };
+      rollDice(function (n, m) {
+        if (!twoW) return bonus(n);
+        pickDie(n, m, bonus);
+      }, twoW);
       return;
     }
 
@@ -536,7 +550,7 @@
 
   // {漢字|かんじ} と書いたところを、ふりがな付きにする（ハードモードは 漢字だけ）
   function ruby(s) {
-    return esc(s || "").replace(/\{([^|{}]+)\|([^|{}]+)\}/g, isAdult() ? "$1" : "<ruby>$1<rt>$2</rt></ruby>");
+    return esc(s || "").replace(/\{([^|{}]+)\|([^|{}]+)\}/g, "<ruby>$1<rt>$2</rt></ruby>");
   }
 
   // 同じものが続けて出ないよう、全部出るまで くじびきのように1つずつ取り出す
@@ -592,6 +606,7 @@
     if (sq.type === "move") return moveEvent(drawFor("move", p.pos));
     if (sq.type === "lucky" || sq.type === "happening") return simpleEvent(sq.type, drawFor(sq.type, p.pos));
     if (sq.type === "card") return cardEvent();
+    if (sq.type === "shop") return shopEvent();
     if (sq.type === "rival") return rivalEvent();
     openCard({ type: "unknown", title: "？", text: T("このマスの データに もんだいが あります", "このマスのデータに問題があります") });
     awardPoints(0);
@@ -602,7 +617,7 @@
     p.finishOrder = game.finished++;
     openCard({
       type: "goal", badge: "ゴール", title: "ゴール！",
-      text: (p.finishOrder + 1) + T("着で " + ruby("{両津港|りょうつこう}") + "に もどってきた！ ゴールボーナス", "着で両津港に戻ってきた！ ゴールボーナス")
+      text: (p.finishOrder + 1) + T("着で " + ruby("{両津港|りょうつこう}") + "に もどってきた！ ゴールボーナス", "着で" + ruby("{両津港|りょうつこう}") + "に戻ってきた！ ゴールボーナス")
     });
     awardPoints(GOAL_BONUS[p.finishOrder] || 0, null, true);
   }
@@ -652,7 +667,7 @@
   function effectNote(ev) {
     if (ev.effect === "seasick") return T("つぎの 番 −1マス", "次の番 −1マス");
     if (ev.effect === "twoDice") return T("つぎの 番 サイコロ2こ", "次の番 サイコロ2個");
-    if (ev.effect === "card") return "カードを1枚引く";
+    if (ev.effect === "card") return "カードを1枚もらう";
     if (ev.effect === "tokiUp") return T("トキに 会いやすく なった", "トキに会いやすくなった");
     return null;
   }
@@ -735,15 +750,86 @@
 
   // ---------- ハードモード：カード ----------
 
-  // 山札（count の まいすうずつ 入れる）
-  function cardDeck() {
-    var deck = [];
-    events.cards.forEach(function (c) { for (var k = 0; k < c.count; k++) deck.push(c); });
-    return deck;
+  // ただで もらえる 1まい（はじめに配る・ラッキー）：2番目の売店だけで売る カード（入れ替え）以外から ランダム
+  function freeCard() {
+    var list = events.cards.filter(function (c) { return c.shop !== "second"; });
+    return list.length ? list[Math.floor(Math.random() * list.length)] : null;
   }
 
   function cardHtml(c) {
     return '<span class="game-card kind-' + c.kind + '"><b>' + esc(c.title) + "</b><small>" + ruby(c.text) + "</small></span>";
+  }
+
+  // ---------- ハードモード：売店 ----------
+
+  // ゴールまでの いちばん短い マス数（分かれ道は 近いほう）。ゴールした人は 0
+  var goalDistMemo = {};
+  function goalDist(i) {
+    var key = mode + ":" + i;
+    if (goalDistMemo[key] !== undefined) return goalDistMemo[key];
+    var best = Infinity;
+    nextOf(i).forEach(function (j) { best = Math.min(best, j === 0 ? 1 : 1 + goalDist(j)); });
+    return (goalDistMemo[key] = best);
+  }
+  function playerGoalDist(p) { return p.finishOrder !== null || p.home ? 0 : goalDist(p.pos); }
+
+  // 売店を ゴールに 近い順に ならべて、2番目の 売店の マス番号
+  function secondShop() {
+    var shops = [];
+    squares.forEach(function (s, i) { if (s.type === "shop") shops.push(i); });
+    shops.sort(function (a, b) { return goalDist(a) - goalDist(b); });
+    return shops.length >= 2 ? shops[1] : -1;
+  }
+
+  // 売店の 商品を えらぶ：Tシャツは いつも。2番目の売店では「入れ替え」も いつも。のこりは ランダム
+  function shopGoods(sqIndex) {
+    var sh = events.shop, size = sh ? sh.size : 5;
+    var tshirt = { kind: "tshirt", title: sh ? sh.tshirt.title : "I♥佐渡Tシャツ", text: sh ? sh.tshirt.text : "", price: sh ? sh.tshirt.price : 50 };
+    var second = sqIndex === secondShop();
+    var goods = [tshirt];
+    events.cards.forEach(function (c) { if (c.shop === "second" && second) goods.push(c); });
+    var rest = shuffle(events.cards.filter(function (c) { return c.shop !== "second"; }));
+    while (goods.length < size && rest.length) goods.push(rest.pop());
+    return goods;
+  }
+
+  // 買えない わけ（買えるなら null）
+  function cannotBuy(p, g) {
+    if (p.points < g.price) return T("ポイントが たりない", "ポイントが足りない");
+    if (g.kind === "tshirt") return p.tokiUp ? "もう持っている" : null;
+    if (g.max && (game.sold[g.kind] || 0) >= g.max) return "売り切れ（1回のプレイで" + g.max + "枚まで）";
+    if (p.cards.length >= HAND_MAX) return "手札が" + HAND_MAX + "枚でいっぱい";
+    return null;
+  }
+
+  // 売店マス：商品から 1つ 買える（買わなくてもよい）
+  function shopEvent() {
+    var p = cur();
+    var goods = shopGoods(p.pos);
+    openCard({ type: "shop", title: "売店", text: "好きなものを1つ買える（買わなくてもいい）",
+      body: '<div class="shop-items">' + goods.map(function (g, k) {
+        var why = cannotBuy(p, g);
+        return '<button type="button" class="shop-item" data-k="' + k + '"' + (why ? " disabled" : "") + ">" +
+          cardHtml(g) + '<span class="shop-price">' + g.price + "<small>点</small>" +
+          (why ? '<span class="shop-why">' + esc(why) + "</span>" : "") + "</span></button>";
+      }).join("") + "</div>" });
+    var done = false;
+    Array.prototype.forEach.call($("card-body").querySelectorAll(".shop-item"), function (b) {
+      b.addEventListener("click", function () {
+        if (done || b.disabled) return;
+        done = true;
+        var g = goods[Number(b.dataset.k)];
+        if (g.kind === "tshirt") p.tokiUp = true;
+        else {
+          p.cards.push(g);
+          game.sold[g.kind] = (game.sold[g.kind] || 0) + 1;
+        }
+        $("card-body").innerHTML = '<div class="drawn">' + cardHtml(g) + '</div><p class="hand-full">' + esc(g.title) + "を買った！</p>";
+        renderHand();
+        awardPoints(-g.price, null, true);
+      });
+    });
+    cardButton("何も買わない", function () { if (!done) { done = true; hideCard(); endTurn(); } });
   }
 
   // おまもりを持っていたら 1まい 使って true
@@ -758,15 +844,15 @@
     return false;
   }
 
-  // カードマス：1まい 引く。手札が いっぱいなら 交換するか えらぶ
+  // カードを 1まい もらう（ラッキーの effect: "card"）。手札が いっぱいなら 交換するか えらぶ
   function cardEvent() {
     var p = cur();
-    var c = draw("cards", cardDeck());
+    var c = freeCard();
     if (!c) {
       openCard({ type: "card", title: "カードがありません" });
       return nextButton();
     }
-    openCard({ type: "card", title: "カードを引いた！", body: '<div class="drawn">' + cardHtml(c) + "</div>" });
+    openCard({ type: "card", title: "カードをもらった！", body: '<div class="drawn">' + cardHtml(c) + "</div>" });
     if (p.cards.length < HAND_MAX) {
       p.cards.push(c);
       renderScoreboard();
@@ -796,7 +882,7 @@
     var p = cur();
     var box = $("hand");
     if (!p.cards.length) {
-      box.innerHTML = '<p class="hand-empty">カードマスで引ける</p>';
+      box.innerHTML = '<p class="hand-empty">売店で買える</p>';
       return;
     }
     box.innerHTML = "";
@@ -813,7 +899,8 @@
 
   function canUse(p, c) {
     if (c.kind === "guard") return false;
-    if (p.finishOrder !== null) return c.kind === "steal"; // ゴールした人は よこどりだけ
+    // ゴールした人は 横取り・サイコロ2個・ポイント2倍だけ
+    if (p.finishOrder !== null && ["steal", "twoDice", "double"].indexOf(c.kind) < 0) return false;
     if (c.kind === "twoDice") return !p.twoDice;
     if (c.kind === "boost") return !p.boost;
     if (c.kind === "double") return !p.double;
@@ -869,7 +956,7 @@
     }
     $("card-body").innerHTML = '<p class="pick-title">誰にする？</p><div class="pick-choices">' + list.map(function (q, k) {
       return '<button type="button" class="pick-choice" data-k="' + k + '">' + komaIcon(q.koma, 36) +
-        "<b>" + esc(q.name) + "</b><small>" + q.points + "点</small></button>";
+        "<b>" + esc(q.name) + "</b><small>" + pointsText(q.points) + "点</small></button>";
     }).join("") + "</div>";
     var done = false;
     Array.prototype.forEach.call($("card-body").querySelectorAll(".pick-choice"), function (b) {
@@ -1046,12 +1133,12 @@
 
   // ポイントを出す：カウントアップ → スコアボードへ飛ばす → スコアボードもカウントアップ。「つぎへ」も出す
   // then：「つぎへ」を押したあとに することは（ふつうは endTurn：野生のトキ → 次の人）
-  // plain：ポイント2ばいカードを 使わない（ゴールボーナスや カード・かけひきの やりとり）
+  // plain：ポイント2倍カードを 使わない（ゴールボーナスや 売店・カード・かけひきの やりとり）。2倍は マイナスも 2倍
   // note：ポイントが 0 のとき「±0」の かわりに 出す ことば（船よい など）
   function awardPoints(raw, then, plain, note) {
     var player = game.turn;
     var doubled = false;
-    if (game.doubleNow && raw > 0 && !plain) {
+    if (game.doubleNow && raw !== 0 && !plain) {
       raw *= 2;
       doubled = true;
       game.doubleNow = false;
@@ -1132,6 +1219,7 @@
       el.parentNode.classList.add("bump");
       var fromV = p.shown;
       p.shown = p.points;
+      if (game.secret) return renderScoreboard(); // ひみつの ときは 数字を 出さない
       countUp(el.firstChild, fromV, p.points, 500, String, function () { renderScoreboard(); });
     }, 650);
   }
@@ -1157,9 +1245,19 @@
       later(showResults, 600);
       return;
     }
-    // ゴールした人にも番が回ってくる（出た目 × 10てん）
+    // 全員が ゴールまで 10マス以内に なったら、次の番から ポイントを ひみつに する
+    var revealNow = false;
+    if (!game.secret && game.players.every(function (p) { return playerGoalDist(p) <= SECRET_WITHIN; })) {
+      game.secret = true;
+      revealNow = true;
+    }
+    // ゴールした人にも番が回ってくる（出た目 × 5てん）
     game.turn = (game.turn + 1) % game.players.length;
     render();
+    if (revealNow) {
+      flashCard('<span class="pass-star"></span><div><small>' + T("みんな ゴール まぢか！", "全員ゴール間近！") + "</small><b>" +
+        T("ここから ポイントは ひみつ", "ここからポイントは秘密") + "</b></div>");
+    }
   }
 
   // ゴールした人が、ほかの人を まっている あいだの ボーナス
@@ -1168,7 +1266,7 @@
     map.setInteractive(true);
     openCard({
       type: "goal", badge: T("ゴールずみ", "ゴール済み"), title: T("まちじかん ボーナス", "待ち時間ボーナス"),
-      text: T(ruby("{両津港|りょうつこう}で みんなを まちながら、サイコロを ふったよ。"), "両津港でみんなを待ちながら、サイコロを振った。"),
+      text: T(ruby("{両津港|りょうつこう}で みんなを まちながら、サイコロを ふったよ。"), ruby("{両津港|りょうつこう}でみんなを待ちながら、サイコロを振った。")),
       body: n === 1
         ? '<div class="bonus-calc miss"><b>1</b> ' + T("が 出ちゃった…", "が出てしまった…") + " <b>−10</b>" + T("てん", "点") + "</div>"
         : '<div class="bonus-calc"><b>' + n + "</b> × " + WAITING_BONUS + " ＝ <b>" + pts + "</b>" + T("てん", "点") + "</div>"

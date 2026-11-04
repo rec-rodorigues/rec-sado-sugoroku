@@ -3,7 +3,7 @@
 // 書き間違いがあってもゲームは止めず、問題をリストにして返す。
 // =====================================================
 
-var SQUARE_TYPES = ["start", "place", "lucky", "quiz", "happening", "move", "card", "rival"];
+var SQUARE_TYPES = ["start", "place", "lucky", "quiz", "happening", "move", "card", "rival", "shop"];
 
 // file：お知らせに出すファイル名、label：「ハードモードの」など、お知らせの頭につける言葉
 function checkSquares(raw, file, label) {
@@ -105,7 +105,8 @@ var RANGES = {
   place: [20, 100], dice: [10, 30], lucky: [10, 30], happening: [-20, -10], move: [-3, 3], quiz: [10, 30],
   fixed: [-50, 100], toki: [50, 200], bonus: [10, 100],
   // ハードモード
-  steal: [10, 50], duel: [10, 50], leader: [10, 30], share: [10, 30], boost: [1, 3], count: [1, 5]
+  steal: [10, 50], duel: [10, 50], leader: [10, 30], share: [10, 30], boost: [1, 3], count: [1, 5],
+  price: [10, 100], max: [1, 5]
 };
 var EFFECTS = ["seasick", "tokiUp", "twoDice", "card"];
 var CARD_KINDS = ["twoDice", "boost", "double", "swap", "steal", "guard"];
@@ -116,7 +117,7 @@ function clampTo(v, range) { return Math.max(range[0], Math.min(range[1], v)); }
 function checkEvents(raw, squares, label) {
   var problems = [];
   label = label || "";
-  var out = { places: {}, lucky: [], happening: [], move: [], fixed: {}, wildToki: null, cards: [], rival: [] };
+  var out = { places: {}, lucky: [], happening: [], move: [], fixed: {}, wildToki: null, cards: [], rival: [], shop: null };
   if (!raw || typeof raw !== "object") {
     problems.push("data/events.js が読みこめません。カッコや「,」の書き間違いがないか確認してください。");
     return { events: out, problems: problems };
@@ -227,10 +228,29 @@ function checkEvents(raw, squares, label) {
       c.steps = isNum(e.steps) ? clampTo(Math.round(e.steps), RANGES.boost) : 2;
       if (isNum(e.steps) && c.steps !== e.steps) bad(where, "steps は 1〜3 にしてください（" + c.steps + " にしました）");
     }
-    c.count = isNum(e.count) ? clampTo(Math.round(e.count), RANGES.count) : 1;
-    if (isNum(e.count) && c.count !== e.count) bad(where, "count は 1〜5 にしてください（" + c.count + " にしました）");
+    // 売店の 値段・1回のプレイで 売る まいすうの 上限・2番目の売店だけで 売る
+    c.price = isNum(e.price) ? clampTo(Math.round(e.price), RANGES.price) : 30;
+    if (isNum(e.price) && c.price !== e.price) bad(where, "price は 10〜100 にしてください（" + c.price + " にしました）");
+    if (e.max !== undefined) {
+      c.max = isNum(e.max) ? clampTo(Math.round(e.max), RANGES.max) : 2;
+      if (c.max !== e.max) bad(where, "max は 1〜5 にしてください（" + c.max + " にしました）");
+    }
+    if (e.shop !== undefined) {
+      if (e.shop === "second") c.shop = "second";
+      else bad(where, "shop は \"second\" だけ 書けます");
+    }
     out.cards.push(c);
   });
+
+  // ハードモードの売店（カード以外の 商品と、ならべる数）
+  if (raw.shop) {
+    var sh = raw.shop, ts = sh.tshirt || {};
+    out.shop = {
+      size: isNum(sh.size) ? clampTo(Math.round(sh.size), [2, 7]) : 5,
+      tshirt: { title: text(ts, "title") || "I♥佐渡Tシャツ", text: text(ts, "text"),
+        price: isNum(ts.price) ? clampTo(Math.round(ts.price), RANGES.price) : 50 }
+    };
+  }
 
   // ハードモードのかけひき
   (Array.isArray(raw.rival) ? raw.rival : []).forEach(function (e, i) {
@@ -250,7 +270,8 @@ function checkEvents(raw, squares, label) {
       problems.push(label + "マス" + i + "のデータに問題あり：event \"" + sq.event + "\" が data/events.js の fixed にありません");
     }
   });
-  if ((squares || []).some(function (sq) { return sq.type === "card"; }) && !out.cards.length) problems.push("カードが1まいも ありません（data/adult/events.js の cards）");
+  if ((squares || []).some(function (sq) { return sq.type === "card" || sq.type === "shop"; }) && !out.cards.length) problems.push("カードが1まいも ありません（data/adult/events.js の cards）");
+  if ((squares || []).some(function (sq) { return sq.type === "shop"; }) && !out.shop) problems.push("売店の データが ありません（data/adult/events.js の shop）");
   if ((squares || []).some(function (sq) { return sq.type === "rival"; }) && !out.rival.length) problems.push("かけひきイベントが1つも ありません（data/adult/events.js の rival）");
   ["lucky", "happening", "move"].forEach(function (key) {
     var used = (squares || []).some(function (sq) { return sq.type === key && !sq.event; });
