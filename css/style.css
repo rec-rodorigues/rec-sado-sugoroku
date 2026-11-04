@@ -1123,3 +1123,47 @@ button { font-family: inherit; color: inherit; }
 
 /* ポイントが ひみつに なったとき */
 .secret-note { font-size: 13px; color: var(--sub); font-weight: 700; }
+
+/* 地図を大きく・全画面のボタン（番の 帯の 右はし） */
+.view-tools {
+  position: absolute;
+  right: 16px;
+  top: 0;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.view-tools button {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  text-shadow: none;
+}
+.view-tools button:hover { background: rgba(255, 255, 255, 0.32); }
+.view-tools button[aria-pressed="true"] { background: #fff; color: var(--sub); }
+.edit-mode .view-tools { display: none; }
+
+/* 地図を大きく：地図を いっぱいに 広げ、右側の パネルは 地図の 上に 重ねる */
+.map-wide .game-body { position: relative; padding: 0; }
+.map-wide .map-area { border-radius: 0; box-shadow: none; }
+.map-wide .side {
+  position: absolute;
+  z-index: 1150;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: 290px;
+  pointer-events: none;
+}
+.map-wide .side > * { pointer-events: auto; background: rgba(255, 255, 255, 0.92); }
+.map-wide .scoreboard-box { flex: 0 1 auto; }
+.map-wide .dice-box { margin-top: auto; }
+.map-wide .minimap { right: 314px; }
+.map-wide .leaflet-control-attribution { margin-right: 304px; }

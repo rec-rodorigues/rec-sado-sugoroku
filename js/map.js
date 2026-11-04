@@ -94,6 +94,9 @@ var MapView = (function () {
     });
     map.attributionControl.setPrefix(false);
     map.setView([squares[0].lat, squares[0].lng], ZOOM);
+    // 「地図を大きく」などで 地図の わくの 大きさが 変わったら、地図を かきなおす
+    var resizeWatch = window.ResizeObserver ? new ResizeObserver(function () { map.invalidateSize(); }) : null;
+    if (resizeWatch) resizeWatch.observe(container);
 
     // 地図の画像。読みこめないときはお知らせを出す
     var tiles = L.tileLayer(TILE_URL, {
@@ -250,6 +253,7 @@ var MapView = (function () {
         mini.setActive(i);
       },
       destroy: function () {
+        if (resizeWatch) resizeWatch.disconnect();
         map.remove();
         tools.remove();
         minimapContainer.innerHTML = "";

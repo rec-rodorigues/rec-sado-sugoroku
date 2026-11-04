@@ -106,7 +106,7 @@ var RANGES = {
   fixed: [-50, 100], toki: [50, 200], bonus: [10, 100],
   // ハードモード
   steal: [10, 50], duel: [10, 50], leader: [10, 30], share: [10, 30], boost: [1, 3], count: [1, 5],
-  price: [10, 100], max: [1, 5]
+  price: [10, 100], max: [1, 5], shops: [1, 20]
 };
 var EFFECTS = ["seasick", "tokiUp", "twoDice", "card"];
 var CARD_KINDS = ["twoDice", "boost", "double", "swap", "steal", "guard"];
@@ -228,16 +228,16 @@ function checkEvents(raw, squares, label) {
       c.steps = isNum(e.steps) ? clampTo(Math.round(e.steps), RANGES.boost) : 2;
       if (isNum(e.steps) && c.steps !== e.steps) bad(where, "steps は 1〜3 にしてください（" + c.steps + " にしました）");
     }
-    // 売店の 値段・1回のプレイで 売る まいすうの 上限・2番目の売店だけで 売る
+    // 売店の 値段・1回のプレイで 売る まいすうの 上限・売る 売店の 数
     c.price = isNum(e.price) ? clampTo(Math.round(e.price), RANGES.price) : 30;
     if (isNum(e.price) && c.price !== e.price) bad(where, "price は 10〜100 にしてください（" + c.price + " にしました）");
     if (e.max !== undefined) {
       c.max = isNum(e.max) ? clampTo(Math.round(e.max), RANGES.max) : 2;
       if (c.max !== e.max) bad(where, "max は 1〜5 にしてください（" + c.max + " にしました）");
     }
-    if (e.shop !== undefined) {
-      if (e.shop === "second") c.shop = "second";
-      else bad(where, "shop は \"second\" だけ 書けます");
+    if (e.shops !== undefined) {
+      c.shops = isNum(e.shops) ? clampTo(Math.round(e.shops), RANGES.shops) : 5;
+      if (c.shops !== e.shops) bad(where, "shops は 1〜20 にしてください（" + c.shops + " にしました）");
     }
     out.cards.push(c);
   });

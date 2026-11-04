@@ -203,7 +203,8 @@
     bags = {};
     game = { players: [], turn: 0, finished: 0, busy: false, doubleNow: false, history: [],
       secret: false, // ポイントを ひみつに している
-      sold: {} };    // 売店で 売った カードの まいすう（kind ごと）
+      sold: {},      // 売店で 売った カードの まいすう（kind ごと）
+      limited: {} }; // shops を 書いた カードを 売る 売店（kind ごとに マス番号の 一覧。ゲームごとに ランダム）
     setup.players.slice(0, setup.count).forEach(function (p, i) {
       game.players.push({
         name: p.name.trim() || "プレイヤー" + (i + 1),
@@ -232,6 +233,12 @@
           if (c) p.cards.push(c);
         }
       });
+      // 入れ替え（shops を 書いた カード）を 売る 売店を、ゲームごとに ランダムに えらぶ
+      var shopSquares = [];
+      squares.forEach(function (s, i) { if (s.type === "shop") shopSquares.push(i); });
+      events.cards.forEach(function (c) {
+        if (c.shops) game.limited[c.kind] = shuffle(shopSquares.slice()).slice(0, c.shops);
+      });
     }
     // 結果発表の グラフ用：番が おわるごとの ポイント
     game.history.push(game.players.map(function () { return 0; }));
@@ -254,7 +261,7 @@
     $("turn-text").innerHTML = komaIcon(p.koma, 52) + "<span>" + esc(p.name) + T("さんの 番", "さんの番") + (done ? "<small class='turn-done'>" + T("ゴールずみ", "ゴール済み") + "</small>" : "") + "</span>";
     var notes = [];
     if (p.twoDice) notes.push(T("サイコロ2こ", "サイコロ2個"));
-    if (!done && p.boost) notes.push("出た目 +" + p.boost);
+    if (p.boost) notes.push("出た目 +" + p.boost);
     if (p.double) notes.push(T("ポイント2ばい", "ポイント2倍"));
     if (done) notes.unshift("出た目 × " + WAITING_BONUS + T("てん（1は −10）", "点（1は−10）"));
     $("roll-button").innerHTML = T("サイコロを ふる", "サイコロを振る") + (notes.length ? "<small>" + notes.join("・") + "</small>" : "");
@@ -364,17 +371,19 @@
     $("dice-result").textContent = "";
     var p = cur();
 
-    // ゴールした人：コマは動かさず、出た目 × 5てん（サイコロ2個・ポイント2倍の カードも 使える）
+    // ゴールした人：コマは動かさず、出た目 × 5てん（サイコロ2個・追い風・ポイント2倍の カードも 使える）
     if (p.finishOrder !== null) {
-      var twoW = p.twoDice;
+      var twoW = p.twoDice, boostW = p.boost;
       p.twoDice = false;
       p.boost = 0;
       game.doubleNow = p.double;
       p.double = false;
-      var bonus = function (n) {
-        $("dice-result").innerHTML = n === 1 ? "<b>1</b> … −10" + T("てん", "点") : "<b>" + n + "</b> × " + WAITING_BONUS + T("てん！", "点！");
+      var bonus = function (d) {
+        var n = d + boostW; // 追い風：出た目に たす（1が出ても たせば −10 には ならない）
+        var calc = boostW ? "<b>" + d + "</b> + " + boostW + " ＝ " : "";
+        $("dice-result").innerHTML = n === 1 ? "<b>1</b> … −10" + T("てん", "点") : calc + "<b>" + n + "</b> × " + WAITING_BONUS + T("てん！", "点！");
         showBigNumber(n, n === 1 ? T("ざんねん… −10てん", "残念… −10点") : "× " + WAITING_BONUS + T("てん！", "点！"));
-        later(function () { waitingBonus(n); }, 700);
+        later(function () { waitingBonus(n, boostW ? d : 0); }, 700);
       };
       rollDice(function (n, m) {
         if (!twoW) return bonus(n);
@@ -750,9 +759,9 @@
 
   // ---------- ハードモード：カード ----------
 
-  // ただで もらえる 1まい（はじめに配る・ラッキー）：2番目の売店だけで売る カード（入れ替え）以外から ランダム
+  // ただで もらえる 1まい（はじめに配る・ラッキー）：一部の売店だけで売る カード（入れ替え）以外から ランダム
   function freeCard() {
-    var list = events.cards.filter(function (c) { return c.shop !== "second"; });
+    var list = events.cards.filter(function (c) { return !c.shops; });
     return list.length ? list[Math.floor(Math.random() * list.length)] : null;
   }
 
@@ -773,22 +782,15 @@
   }
   function playerGoalDist(p) { return p.finishOrder !== null || p.home ? 0 : goalDist(p.pos); }
 
-  // 売店を ゴールに 近い順に ならべて、2番目の 売店の マス番号
-  function secondShop() {
-    var shops = [];
-    squares.forEach(function (s, i) { if (s.type === "shop") shops.push(i); });
-    shops.sort(function (a, b) { return goalDist(a) - goalDist(b); });
-    return shops.length >= 2 ? shops[1] : -1;
-  }
-
-  // 売店の 商品を えらぶ：Tシャツは いつも。2番目の売店では「入れ替え」も いつも。のこりは ランダム
+  // 売店の 商品を えらぶ：入れ替えを 売る 売店（ゲームごとに ランダム）では 入れ替えを いつも。のこりは Tシャツと カードから ランダム
   function shopGoods(sqIndex) {
-    var sh = events.shop, size = sh ? sh.size : 5;
+    var sh = events.shop, size = sh ? sh.size : 3;
     var tshirt = { kind: "tshirt", title: sh ? sh.tshirt.title : "I♥佐渡Tシャツ", text: sh ? sh.tshirt.text : "", price: sh ? sh.tshirt.price : 50 };
-    var second = sqIndex === secondShop();
-    var goods = [tshirt];
-    events.cards.forEach(function (c) { if (c.shop === "second" && second) goods.push(c); });
-    var rest = shuffle(events.cards.filter(function (c) { return c.shop !== "second"; }));
+    var goods = [];
+    events.cards.forEach(function (c) {
+      if (c.shops && (game.limited[c.kind] || []).indexOf(sqIndex) >= 0) goods.push(c);
+    });
+    var rest = shuffle(events.cards.filter(function (c) { return !c.shops; }).concat([tshirt]));
     while (goods.length < size && rest.length) goods.push(rest.pop());
     return goods;
   }
@@ -899,8 +901,8 @@
 
   function canUse(p, c) {
     if (c.kind === "guard") return false;
-    // ゴールした人は 横取り・サイコロ2個・ポイント2倍だけ
-    if (p.finishOrder !== null && ["steal", "twoDice", "double"].indexOf(c.kind) < 0) return false;
+    // ゴールした人は 横取り・サイコロ2個・追い風・ポイント2倍だけ
+    if (p.finishOrder !== null && ["steal", "twoDice", "boost", "double"].indexOf(c.kind) < 0) return false;
     if (c.kind === "twoDice") return !p.twoDice;
     if (c.kind === "boost") return !p.boost;
     if (c.kind === "double") return !p.double;
@@ -1024,6 +1026,16 @@
     }
     if (ev.kind === "leader") {
       var top = others(p).sort(function (a, b) { return b.points - a.points; })[0];
+      // ポイントが ひみつの あいだは、だれが 1位か わからないように 名前を 出さない。
+      // 自分が 1位なら、自分から 自分に わたすのと 同じなので ポイントは 動かさない（+20 とだけ 見せる）
+      if (game.secret) {
+        $("card-body").innerHTML = '<div class="guard-note ok">1位の人からもらった！（だれかは秘密）</div>';
+        if (top && top.points > p.points) {
+          takePoints(top, ev.point);
+          return awardPoints(ev.point, null, true);
+        }
+        return showPointsOnly(ev.point);
+      }
       if (!top || top.points <= p.points) {
         $("card-body").innerHTML = '<div class="guard-note">あなたがトップ！ もらえる人がいない</div>';
         return awardPoints(0, null, true, "0点");
@@ -1165,6 +1177,15 @@
     }, 400);
   }
 
+  // ポイントは 動かさずに「+○点」とだけ 見せる（ひみつの あいだに 自分が 1位の 人から もらったとき）
+  function showPointsOnly(v) {
+    var box = $("card-points");
+    box.hidden = false;
+    box.className = "card-points plus";
+    box.innerHTML = '<span id="card-num">+' + v + "</span><small>" + T("てん", "点") + "</small>";
+    nextButton();
+  }
+
   // 「つぎへ」ボタン。then：押したあとに することは（ふつうは endTurn：野生のトキ → 次の人）
   function nextButton(then) {
     $("card-actions").innerHTML = "";
@@ -1261,7 +1282,7 @@
   }
 
   // ゴールした人が、ほかの人を まっている あいだの ボーナス
-  function waitingBonus(n) {
+  function waitingBonus(n, rolled) {
     var pts = n === 1 ? WAITING_ONE : n * WAITING_BONUS;
     map.setInteractive(true);
     openCard({
@@ -1269,7 +1290,7 @@
       text: T(ruby("{両津港|りょうつこう}で みんなを まちながら、サイコロを ふったよ。"), ruby("{両津港|りょうつこう}でみんなを待ちながら、サイコロを振った。")),
       body: n === 1
         ? '<div class="bonus-calc miss"><b>1</b> ' + T("が 出ちゃった…", "が出てしまった…") + " <b>−10</b>" + T("てん", "点") + "</div>"
-        : '<div class="bonus-calc"><b>' + n + "</b> × " + WAITING_BONUS + " ＝ <b>" + pts + "</b>" + T("てん", "点") + "</div>"
+        : '<div class="bonus-calc">' + (rolled ? "<b>" + rolled + "</b> + " + (n - rolled) + " ＝ " : "") + "<b>" + n + "</b> × " + WAITING_BONUS + " ＝ <b>" + pts + "</b>" + T("てん", "点") + "</div>"
     });
     awardPoints(pts, nextTurn);
   }
@@ -1290,6 +1311,8 @@
   var RACE_MS = 9000;      // ムービー全体の 長さ（番が 多いときは 1番あたりを みじかくする）
   var RACE_STEP_MAX = 500; // 1番あたり いちばん長くて
   var RACE_STEP_MIN = 60;  // 1番あたり いちばん短くて
+  var RACE_SLOW_ROUNDS = 2; // さいごの 2周ぶん（人数 × 2 番）は ゆっくり 見せて、だれが 1位かで もりあがる
+  var RACE_SLOW_MS = 1100;  // ゆっくりの いちばん さいごの 1番の 長さ
   var raceFrame = null;
   function playRace(players, history, done) {
     if (raceFrame) cancelAnimationFrame(raceFrame);
@@ -1305,6 +1328,23 @@
     }).join("");
     var rows = players.map(function (_, i) { return $("race-" + i); });
     var stepMs = Math.max(RACE_STEP_MIN, Math.min(RACE_STEP_MAX, RACE_MS / Math.max(1, last)));
+    // 1番ごとの 長さ：はじめは stepMs、さいごの slowN 番は だんだん ゆっくりに して RACE_SLOW_MS まで のばす
+    var slowN = Math.min(last, players.length * RACE_SLOW_ROUNDS);
+    var ends = [], t = 0;
+    for (var s = 0; s < last; s++) {
+      var k = s - (last - slowN); // ゆっくりの なかで 何番目か（0 から）
+      var ms = k < 0 ? stepMs : stepMs + (RACE_SLOW_MS - stepMs) * Math.pow((k + 1) / slowN, 0.6);
+      ends.push(t += ms);
+    }
+    function posAt(elapsed) {
+      for (var s = 0; s < last; s++) {
+        if (elapsed < ends[s]) {
+          var from = s ? ends[s - 1] : 0;
+          return s + (elapsed - from) / (ends[s] - from);
+        }
+      }
+      return last;
+    }
     var start = null;
     function drawRace(pos) {
       var k = Math.min(last, Math.floor(pos)), f = pos - k;
@@ -1325,7 +1365,7 @@
     drawRace(0);
     raceFrame = requestAnimationFrame(function frame(now) {
       if (start === null) start = now;
-      var pos = Math.min(last, (now - start) / stepMs);
+      var pos = posAt(now - start);
       drawRace(pos);
       if (pos < last) raceFrame = requestAnimationFrame(frame);
       else { raceFrame = null; done(); }
@@ -1424,6 +1464,20 @@
   renderSetup();
   $("start-button").addEventListener("click", startGame);
   $("roll-button").addEventListener("click", roll);
+
+  // 地図を大きく：地図を 画面いっぱいに 広げて、ポイント・カード・サイコロは 地図の 上に 重ねる
+  $("map-wide-button").addEventListener("click", function () {
+    var on = document.body.classList.toggle("map-wide");
+    this.setAttribute("aria-pressed", on);
+  });
+  // 全画面：ブラウザの わくや タブを 消して、モニターいっぱいに する（Esc で もどる）
+  $("fullscreen-button").addEventListener("click", function () {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(function () {});
+  });
+  document.addEventListener("fullscreenchange", function () {
+    $("fullscreen-button").setAttribute("aria-pressed", !!document.fullscreenElement);
+  });
   $("again-button").addEventListener("click", function () {
     clearTimers();
     Confetti.stop();
