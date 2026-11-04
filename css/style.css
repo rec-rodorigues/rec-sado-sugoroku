@@ -915,7 +915,7 @@ button { font-family: inherit; color: inherit; }
 /* 通りすぎたときの小さなカードの写真 */
 .pass-photo { width: 72px; height: 54px; object-fit: cover; border-radius: 10px; flex: none; }
 
-/* ---------- おとなモード ---------- */
+/* ---------- ハードモード ---------- */
 :root { --purple: #8e5cc4; --orange: #e5832a; }
 .adult-only { display: none !important; }
 .mode-adult .adult-only { display: revert !important; }

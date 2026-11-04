@@ -48,11 +48,11 @@
     return sq.yomi && !isAdult() ? "<ruby>" + esc(sq.name) + "<rt>" + esc(sq.yomi) + "</rt></ruby>" : esc(sq.name);
   }
 
-  // ---------- モード（こども・おとな）ごとのデータ ----------
-  // おとなモードは data/adult/ の マス・イベント・クイズだけを使う（文章が ふつうの漢字かなまじり）
+  // ---------- モード（イージー・ハード）ごとのデータ ----------
+  // ハードモードは data/adult/ の マス・イベント・クイズだけを使う（文章が ふつうの漢字かなまじり）
   var COAST_KM = 1.0; // 海岸に近いマス（海岸線から 約1km 以内）
   var HAND_MAX = 3;   // カードは 1人 3まいまで
-  var START_CARDS = 1; // おとなモードで さいしょに 配るカード
+  var START_CARDS = 1; // ハードモードで さいしょに 配るカード
 
   function buildMode(rawSquares, rawEvents, quizzes, quizProblems, file, label) {
     var cs = checkSquares(rawSquares, file, label);
@@ -68,10 +68,10 @@
   var MODES = {
     kids: buildMode(window.SQUARES, window.EVENTS, kidsQuizzes.quizzes, kidsQuizzes.problems, "data/squares.js", ""),
     adult: buildMode(window.ADULT_SQUARES, window.ADULT_EVENTS,
-      adultQuizzes.quizzes, adultQuizzes.problems, "data/adult/squares.js", "おとなモードの ")
+      adultQuizzes.quizzes, adultQuizzes.problems, "data/adult/squares.js", "ハードモードの ")
   };
 
-  // 画面の文章：こどもモードは ひらがな・分かち書き、おとなモードは ふつうの漢字かなまじり
+  // 画面の文章：イージーモードは ひらがな・分かち書き、ハードモードは ふつうの漢字かなまじり
   function T(kids, adult) { return isAdult() ? adult : kids; }
 
   // いま遊んでいるモードのデータ（setMode で切りかえる）
@@ -138,10 +138,10 @@
       cb.appendChild(b);
     })(n);
 
-    // モード：こども（これまでの すごろく）／おとな（分かれ道・カード・かけひき）
+    // モード：イージー（これまでの すごろく）／ハード（分かれ道・カード・かけひき）
     var mb = $("mode-buttons");
     mb.innerHTML = "";
-    [["kids", "こども", "40マス・5分くらい"], ["adult", "おとな", "56マス・分かれ道・カード・駆け引き"]].forEach(function (m) {
+    [["kids", "イージー", "40マス・5分くらい"], ["adult", "ハード", "88マス・分かれ道・カード・駆け引き"]].forEach(function (m) {
       var b = document.createElement("button");
       b.type = "button";
       b.className = "mode-button mode-" + m[0] + (setup.mode === m[0] ? " selected" : "");
@@ -214,14 +214,14 @@
         seasick: false,   // 船よい：つぎの番で すすむマスが 1 へる
         tokiUp: false,    // I♥佐渡：野生のトキに 会える かくりつが 上がる
         tokiCount: 0,     // 野生のトキに 会った回数（1人 2回まで）
-        // ここから おとなモード
+        // ここから ハードモード
         cards: [],        // 手札（3まいまで）
         twoDice: false,   // つぎの番は サイコロ2こ
         boost: 0,         // つぎの番は 出た目に たす
         double: false     // つぎの番で 止まったマスの ポイントが 2ばい
       });
     });
-    // おとなモード：さいしょに カードを 配る
+    // ハードモード：さいしょに カードを 配る
     if (isAdult()) {
       game.players.forEach(function (p) {
         for (var k = 0; k < START_CARDS; k++) {
@@ -534,7 +534,7 @@
     return p.points - before;
   }
 
-  // {漢字|かんじ} と書いたところを、ふりがな付きにする（おとなモードは 漢字だけ）
+  // {漢字|かんじ} と書いたところを、ふりがな付きにする（ハードモードは 漢字だけ）
   function ruby(s) {
     return esc(s || "").replace(/\{([^|{}]+)\|([^|{}]+)\}/g, isAdult() ? "$1" : "<ruby>$1<rt>$2</rt></ruby>");
   }
@@ -733,7 +733,7 @@
     });
   }
 
-  // ---------- おとなモード：カード ----------
+  // ---------- ハードモード：カード ----------
 
   // 山札（count の まいすうずつ 入れる）
   function cardDeck() {
@@ -909,7 +909,7 @@
     then();
   }
 
-  // ---------- おとなモード：かけひきマス ----------
+  // ---------- ハードモード：かけひきマス ----------
 
   function rivalEvent() {
     var p = cur();
@@ -1314,7 +1314,7 @@
 
   // ---------- はじめる ----------
 
-  // こども・おとな 両方の データの問題（同じ お知らせは 1回だけ）
+  // イージー・ハード 両方の データの問題（同じ お知らせは 1回だけ）
   showProblems(MODES.kids.problems.concat(MODES.adult.problems).filter(function (m, k, all) { return all.indexOf(m) === k; }));
   // タイトル画面と結果発表のかざり
   ["title-screen", "result-screen"].forEach(function (id) {
@@ -1391,9 +1391,9 @@
     }
   }
 
-  // おとなモードのマスは ?edit=1&mode=adult
+  // ハードモードのマスは ?edit=1&mode=adult
   if (/[?&]edit=1/.test(location.search)) {
-    if (/[?&]mode=adult/.test(location.search)) setMode("adult");
+    if (/[?&]mode=(adult|hard)/.test(location.search)) setMode("adult");
     if (squares) startEdit();
   }
 })();

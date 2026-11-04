@@ -5,7 +5,7 @@
 
 var SQUARE_TYPES = ["start", "place", "lucky", "quiz", "happening", "move", "card", "rival"];
 
-// file：お知らせに出すファイル名、label：「おとなモードの」など、お知らせの頭につける言葉
+// file：お知らせに出すファイル名、label：「ハードモードの」など、お知らせの頭につける言葉
 function checkSquares(raw, file, label) {
   var problems = [];
   file = file || "data/squares.js";
@@ -104,7 +104,7 @@ function nearestValid(squares, i, dir) {
 var RANGES = {
   place: [20, 100], dice: [10, 30], lucky: [10, 30], happening: [-20, -10], move: [-3, 3], quiz: [10, 30],
   fixed: [-50, 100], toki: [50, 200], bonus: [10, 100],
-  // おとなモード
+  // ハードモード
   steal: [10, 50], duel: [10, 50], leader: [10, 30], share: [10, 30], boost: [1, 3], count: [1, 5]
 };
 var EFFECTS = ["seasick", "tokiUp", "twoDice", "card"];
@@ -216,7 +216,7 @@ function checkEvents(raw, squares, label) {
       point: point(where, t, RANGES.toki), chance: chance };
   }
 
-  // おとなモードのカード
+  // ハードモードのカード
   (Array.isArray(raw.cards) ? raw.cards : []).forEach(function (e, i) {
     var where = "カード" + (i + 1) + "番目";
     if (!e || typeof e !== "object") return bad(where, "書き方がちがいます");
@@ -232,7 +232,7 @@ function checkEvents(raw, squares, label) {
     out.cards.push(c);
   });
 
-  // おとなモードのかけひき
+  // ハードモードのかけひき
   (Array.isArray(raw.rival) ? raw.rival : []).forEach(function (e, i) {
     var where = "かけひきイベント" + (i + 1) + "番目";
     if (!e || typeof e !== "object") return bad(where, "書き方がちがいます");

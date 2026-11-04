@@ -36,7 +36,7 @@ var MapView = (function () {
     var inner = s.type === "start" ? SHIP : isBig(s) ? STAR : String(i);
     var html = '<div class="sq sq-' + s.type + (isBig(s) ? " sq-big" : "") + (s.stop ? " sq-stop" : "") + '"><span>' + inner + "</span></div>";
     if (isBig(s)) {
-      // おとなモードは ふりがなを 付けない
+      // ハードモードは ふりがなを 付けない
       var adult = document.body.classList.contains("mode-adult");
       var name = s.yomi && !adult ? "<ruby>" + esc(s.name) + "<rt>" + esc(s.yomi) + "</rt></ruby>" : esc(s.name);
       if (s.type === "start") name += "<small>スタート・ゴール</small>";
