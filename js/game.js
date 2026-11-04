@@ -7,12 +7,12 @@
 
   // コマ。image の絵を差し替えればキャラクターが変わる（color はプレイヤーの色）
   var KOMA = [
-    { name: "トキ", color: "#e8708e", image: "images/koma/toki.svg" },
+    { name: "ドードー", color: "#e8708e", image: "images/koma/dodo.png" },
     { name: "たらいぶね", adultName: "たらい舟", color: "#2f6fc8", image: "images/koma/tarai.svg" },
     { name: "金のかたまり", adultName: "金塊", color: "#8e5cc4", image: "images/koma/kin.svg" },
     { name: "おにぎり", color: "#3a9d5d", image: "images/koma/onigiri.svg" },
-    { name: "カニ", color: "#e5832a", image: "images/koma/kani.svg" },     // 仮の絵
-    { name: "さかな", adultName: "魚", color: "#1f9aa6", image: "images/koma/sakana.svg" }  // 仮の絵
+    { name: "おんでこ", adultName: "{鬼太鼓|おんでこ}", color: "#e5832a", image: "images/koma/ondeko.png" },
+    { name: "ブリ", color: "#1f9aa6", image: "images/koma/buri.png" }
   ];
   var MAX_PLAYERS = 6; // 人数は 2〜6人
   function komaName(k) { return isAdult() && k.adultName ? k.adultName : k.name; }
@@ -183,8 +183,8 @@
         b.type = "button";
         b.className = "koma-button" + (p.koma === k ? " selected" : "");
         b.disabled = p.koma !== k && used.indexOf(k) >= 0;
-        b.title = komaName(koma);
-        b.innerHTML = komaIcon(koma, 40) + "<span>" + esc(komaName(koma)) + "</span>";
+        b.title = komaName(koma).replace(/\{([^|{}]+)\|[^|{}]+\}/g, "$1");
+        b.innerHTML = komaIcon(koma, 40) + "<span>" + ruby(komaName(koma)) + "</span>";
         b.addEventListener("click", function () { p.koma = k; renderSetup(); });
         row.appendChild(b);
       });

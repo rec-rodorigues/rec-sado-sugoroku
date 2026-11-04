@@ -177,7 +177,7 @@ lucky: [
 
 ## 6. コマの絵を変える（`images/koma/`）
 
-サークルで描いた絵ができたら、`images/koma/` の同じ名前のファイル（`toki.svg`、`tarai.svg`、`kin.svg`、`onigiri.svg`、`kani.svg`、`sakana.svg`）と入れかえます。`kani.svg`（カニ）と `sakana.svg`（さかな）は 5人目・6人目用の 仮の絵です。
+サークルで描いた絵ができたら、`images/koma/` の同じ名前のファイル（`dodo.png`（ドードー）、`tarai.svg`、`kin.svg`、`onigiri.svg`、`ondeko.png`（おんでこ）、`buri.png`（ブリ））と入れかえます。
 
 - PNGの絵にするときは、`js/game.js` の先頭にある `KOMA` の `image:` の名前を書きかえます
 - 絵は正方形で、まわりを透明にしておくときれいに見えます
