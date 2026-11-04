@@ -177,19 +177,10 @@ lucky: [
 
 ## 6. コマの絵を変える（`images/koma/`）
 
-サークルで描いた絵ができたら、`images/koma/` の同じ名前のファイル（`toki.svg`、`tarai.svg`、`kin.svg`、`onigiri.svg`）と入れかえます。
+サークルで描いた絵ができたら、`images/koma/` の同じ名前のファイル（`toki.svg`、`tarai.svg`、`kin.svg`、`onigiri.svg`、`kani.svg`、`sakana.svg`）と入れかえます。`kani.svg`（カニ）と `sakana.svg`（さかな）は 5人目・6人目用の 仮の絵です。
 
 - PNGの絵にするときは、`js/game.js` の先頭にある `KOMA` の `image:` の名前を書きかえます
 - 絵は正方形で、まわりを透明にしておくときれいに見えます
-
-## 7. 音を変える（`sounds/`）
-
-今の音は、ブラウザで作った音です。無料素材サイトの音にしたいときの手順です。
-
-1. サイトの利用規約を読み、ゲームで使ってよいか、ネットに公開してよいかを確かめます
-2. `sounds/` にファイルを置きます
-3. `js/sound.js` の先頭にある `SOUND_FILES` に書きます（例：`hop: "sounds/hop.mp3",`）
-4. 出典を `data/credits.js` に書きます
 
 ---
 
@@ -200,9 +191,9 @@ lucky: [
 おとなモードのデータは `data/adult/` にあります。書き方は こどもモードと同じで、次のところだけ ちがいます。
 
 - `data/adult/squares.js`：おとなモードのマス（56マス）。`type: "card"`（カードマス）と `type: "rival"`（かけひきマス）が使えます。分かれ道は `branch`、道の合流は `next` で書きます（くわしくはファイルの上の説明）
-- `data/adult/events.js`：こどもモードの `data/events.js` に **足す** イベント。おとなモードで増えた名所、カード（`cards`）、かけひき（`rival`）もここに書きます
-- `data/adult/quizzes.js`：こどもモードのクイズに **足す** 大人向けのクイズ
+- `data/adult/events.js`：おとなモードの **すべての** イベント（名所・ラッキー・ハプニング・すすむ/もどる・野生のトキ・カード `cards`・かけひき `rival`）。`effect: "card"` を書くと、そのイベントのあとにカードを1枚引きます
+- `data/adult/quizzes.js`：おとなモードの **すべての** クイズ
 
-こどもモードの `data/events.js` や `data/quizzes.js` に追加したものは、おとなモードにも出ます。
+おとなモードの文章は、ふつうの漢字かなまじりで書きます（分かち書き・ふりがな `{漢字|かんじ}` は使いません）。こどもモードの `data/events.js` や `data/quizzes.js` に追加したものは、おとなモードには出ません。両方に出したいときは、おとなモード用の文章にして `data/adult/` にも書いてください。
 
 おとなモードのマスの場所を決めるときは、URLの最後に `?edit=1&mode=adult` を付けて編集モードを開きます。

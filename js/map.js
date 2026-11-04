@@ -17,7 +17,7 @@ var MapView = (function () {
   var SADO_BOUNDS = [[37.55, 137.85], [38.6, 138.85]]; // ここより外へは動かせない
 
   // 同じマスに何人いても重ならないよう、プレイヤーごとに少しずらす（px）
-  var KOMA_OFFSETS = [[-9, -9], [9, -9], [-9, 9], [9, 9]];
+  var KOMA_OFFSETS = [[-9, -9], [9, -9], [-9, 9], [9, 9], [-21, 0], [21, 0]]; // 6人まで
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -36,9 +36,11 @@ var MapView = (function () {
     var inner = s.type === "start" ? SHIP : isBig(s) ? STAR : String(i);
     var html = '<div class="sq sq-' + s.type + (isBig(s) ? " sq-big" : "") + (s.stop ? " sq-stop" : "") + '"><span>' + inner + "</span></div>";
     if (isBig(s)) {
-      var name = s.yomi ? "<ruby>" + esc(s.name) + "<rt>" + esc(s.yomi) + "</rt></ruby>" : esc(s.name);
+      // おとなモードは ふりがなを 付けない
+      var adult = document.body.classList.contains("mode-adult");
+      var name = s.yomi && !adult ? "<ruby>" + esc(s.name) + "<rt>" + esc(s.yomi) + "</rt></ruby>" : esc(s.name);
       if (s.type === "start") name += "<small>スタート・ゴール</small>";
-      if (s.stop) name += "<small class='stop-note'>ここで ストップ</small>";
+      if (s.stop) name += "<small class='stop-note'>" + (adult ? "ここでストップ" : "ここで ストップ") + "</small>";
       if (s.branch) name += "<small class='fork-note'>分かれ道</small>";
       html += '<div class="sq-name">' + name + "</div>";
     } else if (s.branch) {
@@ -170,7 +172,7 @@ var MapView = (function () {
     tools.innerHTML =
       '<button type="button" data-act="in" aria-label="大きくする">＋</button>' +
       '<button type="button" data-act="out" aria-label="小さくする">−</button>' +
-      '<button type="button" data-act="back" class="map-back">コマへ<br>もどる</button>';
+      '<button type="button" data-act="back" class="map-back">コマへ<br>' + (document.body.classList.contains("mode-adult") ? "戻る" : "もどる") + "</button>";
     container.parentNode.appendChild(tools);
     tools.addEventListener("click", function (e) {
       var b = e.target.closest("button");

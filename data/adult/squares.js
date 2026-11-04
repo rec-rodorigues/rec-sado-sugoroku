@@ -29,7 +29,7 @@ window.ADULT_SQUARES = [
   { id: 5,  type: "place", name: "二ツ亀", yomi: "ふたつがめ", lat: 38.3283, lng: 138.4870, event: "futatsugame" },
   { id: 6,  type: "rival",     lat: 38.32151, lng: 138.47615 },
   { id: 7,  type: "place", name: "大野亀", yomi: "おおのがめ", lat: 38.32098, lng: 138.46123, event: "onogame" },
-  { id: 8,  type: "lucky",     lat: 38.28788, lng: 138.44643 },
+  { id: 8,  type: "card",      lat: 38.28788, lng: 138.44643 },
   { id: 9,  type: "quiz",      lat: 38.2514, lng: 138.41845 },
   { id: 10, type: "card",      lat: 38.2155, lng: 138.36853 },
   { id: 11, type: "move",      lat: 38.18178, lng: 138.31866 },
@@ -44,7 +44,7 @@ window.ADULT_SQUARES = [
   { id: 18, type: "happening", lat: 38.04479, lng: 138.38892 },
   { id: 19, type: "rival",     lat: 38.056, lng: 138.352 },
   { id: 20, type: "place", name: "白雲台", yomi: "はくうんだい", lat: 38.0637, lng: 138.3186, event: "hakuuntai" },
-  { id: 21, type: "lucky",     lat: 38.06924, lng: 138.29867 },
+  { id: 21, type: "card",      lat: 38.06924, lng: 138.29867 },
   { id: 22, type: "quiz",      lat: 38.04935, lng: 138.28163 },
 
   // ---- 合流：相川・国仲 ----
@@ -54,9 +54,9 @@ window.ADULT_SQUARES = [
   { id: 26, type: "quiz",      lat: 38.0066, lng: 138.28416 },
   { id: 27, type: "rival",     lat: 38.00717, lng: 138.31092 },
   { id: 28, type: "place", name: "佐渡弁慶 佐渡本店", yomi: "さどべんけい さどほんてん", lat: 38.00404, lng: 138.33195, event: "benkei" },
-  { id: 29, type: "lucky",     lat: 38.00379, lng: 138.36029 },
+  { id: 29, type: "card",      lat: 38.00379, lng: 138.36029 },
   { id: 30, type: "place", name: "大膳神社", yomi: "だいぜんじんじゃ", lat: 37.97502, lng: 138.36418, event: "daizen" },
-  { id: 31, type: "happening", lat: 37.98632, lng: 138.38707 },
+  { id: 31, type: "card",      lat: 37.98632, lng: 138.38707 },
   { id: 32, type: "place", name: "妙宣寺", yomi: "みょうせんじ", lat: 37.97025, lng: 138.37658, event: "myosenji" },
   { id: 33, type: "card",      lat: 37.96226, lng: 138.34538 },
   { id: 34, type: "quiz",      lat: 37.94422, lng: 138.31707,
@@ -83,7 +83,7 @@ window.ADULT_SQUARES = [
   { id: 47, type: "lucky",     lat: 37.88317, lng: 138.43951, event: "jijii" }, // 棚田じじい
   { id: 48, type: "rival",     lat: 37.91964, lng: 138.49064 },
   { id: 49, type: "place", name: "岩首昇竜棚田", yomi: "いわくびしょうりゅうたなだ", lat: 37.94227, lng: 138.49157, event: "iwakubi", stop: true },
-  { id: 50, type: "happening", lat: 37.9724, lng: 138.51943 },
+  { id: 50, type: "card",      lat: 37.9724, lng: 138.51943 },
   { id: 51, type: "quiz",      lat: 37.99993, lng: 138.53811 },
   { id: 52, type: "card",      lat: 38.0303, lng: 138.55314 },
   { id: 53, type: "lucky",     lat: 38.08128, lng: 138.55748 }, // 姫崎

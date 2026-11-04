@@ -107,7 +107,7 @@ var RANGES = {
   // おとなモード
   steal: [10, 50], duel: [10, 50], leader: [10, 30], share: [10, 30], boost: [1, 3], count: [1, 5]
 };
-var EFFECTS = ["seasick", "tokiUp", "twoDice"];
+var EFFECTS = ["seasick", "tokiUp", "twoDice", "card"];
 var CARD_KINDS = ["twoDice", "boost", "double", "swap", "steal", "guard"];
 var RIVAL_KINDS = ["swap", "steal", "leader", "share", "duel"];
 

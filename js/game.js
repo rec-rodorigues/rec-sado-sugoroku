@@ -8,16 +8,23 @@
   // コマ。image の絵を差し替えればキャラクターが変わる（color はプレイヤーの色）
   var KOMA = [
     { name: "トキ", color: "#e8708e", image: "images/koma/toki.svg" },
-    { name: "たらいぶね", color: "#2f6fc8", image: "images/koma/tarai.svg" },
-    { name: "金のかたまり", color: "#8e5cc4", image: "images/koma/kin.svg" },
-    { name: "おにぎり", color: "#3a9d5d", image: "images/koma/onigiri.svg" }
+    { name: "たらいぶね", adultName: "たらい舟", color: "#2f6fc8", image: "images/koma/tarai.svg" },
+    { name: "金のかたまり", adultName: "金塊", color: "#8e5cc4", image: "images/koma/kin.svg" },
+    { name: "おにぎり", color: "#3a9d5d", image: "images/koma/onigiri.svg" },
+    { name: "カニ", color: "#e5832a", image: "images/koma/kani.svg" },     // 仮の絵
+    { name: "さかな", adultName: "魚", color: "#1f9aa6", image: "images/koma/sakana.svg" }  // 仮の絵
   ];
+  var MAX_PLAYERS = 6; // 人数は 2〜6人
+  function komaName(k) { return isAdult() && k.adultName ? k.adultName : k.name; }
 
   // マスの種類の名前（カードの上に出る）
-  var BADGES = { place: "めいしょ", lucky: "ラッキー", quiz: "クイズ", happening: "ハプニング", move: "すすむ・もどる", toki: "レア！", unknown: "？",
+  var BADGES_KIDS = { place: "めいしょ", lucky: "ラッキー", quiz: "クイズ", happening: "ハプニング", move: "すすむ・もどる", toki: "レア！", unknown: "？",
     card: "カード", rival: "かけひき", fork: "分かれ道", dice2: "サイコロ2こ" };
+  var BADGES_ADULT = { place: "名所", lucky: "ラッキー", quiz: "クイズ", happening: "ハプニング", move: "進む・戻る", toki: "レア！", unknown: "？",
+    card: "カード", rival: "駆け引き", fork: "分かれ道", dice2: "サイコロ2個" };
+  var BADGES = BADGES_KIDS;
 
-  var GOAL_BONUS = [150, 120, 80, 50]; // 1着・2着・3着・4着
+  var GOAL_BONUS = [150, 120, 80, 50, 30, 20]; // 1着〜6着
   var TOKI_MAX = 2;       // 野生のトキは 1人 2回まで
   var WAITING_BONUS = 5;    // ゴールした人がサイコロをふったときの「出た目 × 5てん」
   var WAITING_ONE = -10;   // ただし 1 が出たら −10てん
@@ -38,13 +45,14 @@
   }
 
   function placeName(sq) {
-    return sq.yomi ? "<ruby>" + esc(sq.name) + "<rt>" + esc(sq.yomi) + "</rt></ruby>" : esc(sq.name);
+    return sq.yomi && !isAdult() ? "<ruby>" + esc(sq.name) + "<rt>" + esc(sq.yomi) + "</rt></ruby>" : esc(sq.name);
   }
 
   // ---------- モード（こども・おとな）ごとのデータ ----------
-  // おとなモードは、こどもモードのイベント・クイズに data/adult/ のものを足して使う
+  // おとなモードは data/adult/ の マス・イベント・クイズだけを使う（文章が ふつうの漢字かなまじり）
   var COAST_KM = 1.0; // 海岸に近いマス（海岸線から 約1km 以内）
   var HAND_MAX = 3;   // カードは 1人 3まいまで
+  var START_CARDS = 1; // おとなモードで さいしょに 配るカード
 
   function buildMode(rawSquares, rawEvents, quizzes, quizProblems, file, label) {
     var cs = checkSquares(rawSquares, file, label);
@@ -55,22 +63,16 @@
       problems: cs.problems.concat(ce.problems, quizProblems)
     };
   }
-  function mergeEvents(a, b) {
-    a = a || {};
-    b = b || {};
-    var out = { wildToki: a.wildToki };
-    ["places", "lucky", "happening", "move", "fixed", "cards", "rival"].forEach(function (k) {
-      out[k] = (Array.isArray(a[k]) ? a[k] : []).concat(Array.isArray(b[k]) ? b[k] : []);
-    });
-    return out;
-  }
   var kidsQuizzes = checkQuizzes(window.QUIZZES);
   var adultQuizzes = checkQuizzes(window.ADULT_QUIZZES, "data/adult/quizzes.js");
   var MODES = {
     kids: buildMode(window.SQUARES, window.EVENTS, kidsQuizzes.quizzes, kidsQuizzes.problems, "data/squares.js", ""),
-    adult: buildMode(window.ADULT_SQUARES, mergeEvents(window.EVENTS, window.ADULT_EVENTS),
-      kidsQuizzes.quizzes.concat(adultQuizzes.quizzes), adultQuizzes.problems, "data/adult/squares.js", "おとなモードの ")
+    adult: buildMode(window.ADULT_SQUARES, window.ADULT_EVENTS,
+      adultQuizzes.quizzes, adultQuizzes.problems, "data/adult/squares.js", "おとなモードの ")
   };
+
+  // 画面の文章：こどもモードは ひらがな・分かち書き、おとなモードは ふつうの漢字かなまじり
+  function T(kids, adult) { return isAdult() ? adult : kids; }
 
   // いま遊んでいるモードのデータ（setMode で切りかえる）
   var mode, squares, events, quizzes, coastal;
@@ -81,12 +83,18 @@
     events = m.events;
     quizzes = m.quizzes;
     coastal = m.coastal;
+    BADGES = key === "adult" ? BADGES_ADULT : BADGES_KIDS;
     document.body.classList.toggle("mode-adult", key === "adult");
+    // index.html の data-adult を書いた ところの 文章を 入れかえる
+    Array.prototype.forEach.call(document.querySelectorAll("[data-adult]"), function (el) {
+      if (el.dataset.kids === undefined) el.dataset.kids = el.innerHTML;
+      el.innerHTML = key === "adult" ? el.dataset.adult : el.dataset.kids;
+    });
   }
-  setMode("kids");
   function isAdult() { return mode === "adult"; }
+  setMode("kids");
 
-  var setup = { count: 2, mode: "kids", players: [0, 1, 2, 3].map(function (i) { return { name: "", koma: i }; }) };
+  var setup = { count: 2, mode: "kids", players: KOMA.map(function (_, i) { return { name: "", koma: i }; }) };
   var game = null;
   var map = null;
   var diceState = [{ x: 0, y: 0 }, { x: 0, y: 0 }];
@@ -115,43 +123,31 @@
     $("dp-close").addEventListener("click", function () { box.hidden = true; });
   }
 
-  // ---------- 音のボタン ----------
-
-  function renderSoundButton() {
-    var b = $("sound-button");
-    var on = Sound.isOn();
-    b.classList.toggle("off", !on);
-    b.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">' +
-      '<path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>' +
-      (on ? '<path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
-        : '<path d="M16 9l6 6M22 9l-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>') +
-      "</svg><span>おと " + (on ? "ON" : "OFF") + "</span>";
-  }
-
   // ---------- タイトル画面 ----------
 
   function renderSetup() {
+    setMode(setup.mode); // タイトル画面の 文章も モードに あわせる
     var cb = $("count-buttons");
     cb.innerHTML = "";
-    [2, 3, 4].forEach(function (n) {
+    for (var n = 2; n <= MAX_PLAYERS; n++) (function (n) {
       var b = document.createElement("button");
       b.type = "button";
       b.className = "count-button" + (n === setup.count ? " selected" : "");
       b.innerHTML = n + "<small>人</small>";
-      b.addEventListener("click", function () { Sound.play("click"); setup.count = n; renderSetup(); });
+      b.addEventListener("click", function () { setup.count = n; renderSetup(); });
       cb.appendChild(b);
-    });
+    })(n);
 
     // モード：こども（これまでの すごろく）／おとな（分かれ道・カード・かけひき）
     var mb = $("mode-buttons");
     mb.innerHTML = "";
-    [["kids", "こども", "40マス・5分くらい"], ["adult", "おとな", "56マス・分かれ道・カード・かけひき"]].forEach(function (m) {
+    [["kids", "こども", "40マス・5分くらい"], ["adult", "おとな", "56マス・分かれ道・カード・駆け引き"]].forEach(function (m) {
       var b = document.createElement("button");
       b.type = "button";
       b.className = "mode-button mode-" + m[0] + (setup.mode === m[0] ? " selected" : "");
       b.disabled = !MODES[m[0]].squares;
       b.innerHTML = "<b>" + m[1] + "</b><small>" + m[2] + "</small>";
-      b.addEventListener("click", function () { Sound.play("click"); setup.mode = m[0]; renderSetup(); });
+      b.addEventListener("click", function () { setup.mode = m[0]; renderSetup(); });
       mb.appendChild(b);
     });
 
@@ -167,6 +163,7 @@
 
     var box = $("player-setup");
     box.innerHTML = "";
+    box.classList.toggle("many", setup.count > 4); // 5人・6人は 2列に ならべる
     setup.players.slice(0, setup.count).forEach(function (p, i) {
       var row = document.createElement("div");
       row.className = "player-row";
@@ -185,8 +182,9 @@
         b.type = "button";
         b.className = "koma-button" + (p.koma === k ? " selected" : "");
         b.disabled = p.koma !== k && used.indexOf(k) >= 0;
-        b.innerHTML = komaIcon(koma, 40) + "<span>" + esc(koma.name) + "</span>";
-        b.addEventListener("click", function () { Sound.play("click"); p.koma = k; renderSetup(); });
+        b.title = komaName(koma);
+        b.innerHTML = komaIcon(koma, 40) + "<span>" + esc(komaName(koma)) + "</span>";
+        b.addEventListener("click", function () { p.koma = k; renderSetup(); });
         row.appendChild(b);
       });
       box.appendChild(row);
@@ -200,11 +198,9 @@
   function startGame() {
     if (!MODES[setup.mode].squares) return;
     setMode(setup.mode);
-    Sound.unlock();
-    Sound.play("click");
     clearTimers();
     bags = {};
-    game = { players: [], turn: 0, finished: 0, busy: false, doubleNow: false };
+    game = { players: [], turn: 0, finished: 0, busy: false, doubleNow: false, history: [] };
     setup.players.slice(0, setup.count).forEach(function (p, i) {
       game.players.push({
         name: p.name.trim() || "プレイヤー" + (i + 1),
@@ -225,6 +221,17 @@
         double: false     // つぎの番で 止まったマスの ポイントが 2ばい
       });
     });
+    // おとなモード：さいしょに カードを 配る
+    if (isAdult()) {
+      game.players.forEach(function (p) {
+        for (var k = 0; k < START_CARDS; k++) {
+          var c = draw("cards", cardDeck());
+          if (c) p.cards.push(c);
+        }
+      });
+    }
+    // 結果発表の グラフ用：番が おわるごとの ポイント
+    game.history.push(game.players.map(function () { return 0; }));
 
     if (map) map.destroy();
     showScreen("game-screen");
@@ -232,7 +239,6 @@
     hideCard();
     $("dice-result").textContent = "";
     render();
-    Sound.startBgm();
   }
 
   function cur() { return game.players[game.turn]; }
@@ -242,13 +248,13 @@
     var banner = $("turn-banner");
     banner.style.background = p.koma.color;
     var done = p.finishOrder !== null;
-    $("turn-text").innerHTML = komaIcon(p.koma, 52) + "<span>" + esc(p.name) + "さんの 番" + (done ? "<small class='turn-done'>ゴールずみ</small>" : "") + "</span>";
+    $("turn-text").innerHTML = komaIcon(p.koma, 52) + "<span>" + esc(p.name) + T("さんの 番", "さんの番") + (done ? "<small class='turn-done'>" + T("ゴールずみ", "ゴール済み") + "</small>" : "") + "</span>";
     var notes = [];
-    if (!done && p.twoDice) notes.push("サイコロ2こ");
+    if (!done && p.twoDice) notes.push(T("サイコロ2こ", "サイコロ2個"));
     if (!done && p.boost) notes.push("出た目 +" + p.boost);
-    if (!done && p.double) notes.push("ポイント2ばい");
-    $("roll-button").innerHTML = done ? "サイコロを ふる<small>出た目 × " + WAITING_BONUS + "てん（1は −10）</small>"
-      : "サイコロを ふる" + (notes.length ? "<small>" + notes.join("・") + "</small>" : "");
+    if (!done && p.double) notes.push(T("ポイント2ばい", "ポイント2倍"));
+    $("roll-button").innerHTML = done ? T("サイコロを ふる", "サイコロを振る") + "<small>出た目 × " + WAITING_BONUS + T("てん（1は −10）", "点（1は−10）") + "</small>"
+      : T("サイコロを ふる", "サイコロを振る") + (notes.length ? "<small>" + notes.join("・") + "</small>" : "");
     banner.classList.remove("turn-pop");
     void banner.offsetWidth;
     banner.classList.add("turn-pop");
@@ -269,16 +275,19 @@
   }
 
   function renderScoreboard() {
+    // 5人・6人は 1行に つめる
+    $("scoreboard").classList.toggle("many", game.players.length > 4);
+    $("scoreboard").parentNode.classList.toggle("many", game.players.length > 4);
     $("scoreboard").innerHTML = game.players.map(function (p, i) {
       return '<li class="' + (i === game.turn ? "current" : "") + '" style="--pc:' + p.koma.color + '">' +
         komaIcon(p.koma, 40) +
         '<span class="sb-name">' + esc(p.name) +
         (p.finishOrder !== null ? '<em class="sb-goal">ゴール</em>' : "") +
-        (p.seasick ? '<em class="sb-tag sick">ふなよい</em>' : "") +
-        (p.tokiUp ? '<em class="sb-tag toki">I♥さど</em>' : "") + "</span>" +
-        '<span class="sb-points" id="sb-points-' + i + '">' + p.shown + "<small>てん</small></span>" +
-        '<span class="sb-rank">' + currentRank(p) + "ばん" +
-        (isAdult() ? '<em class="sb-tag cards">カード ' + p.cards.length + "まい</em>" : "") + "</span></li>";
+        (p.seasick ? '<em class="sb-tag sick">' + T("ふなよい", "船酔い") + "</em>" : "") +
+        (p.tokiUp ? '<em class="sb-tag toki">' + T("I♥さど", "I♥佐渡") + "</em>" : "") + "</span>" +
+        '<span class="sb-points" id="sb-points-' + i + '">' + p.shown + "<small>" + T("てん", "点") + "</small></span>" +
+        '<span class="sb-rank">' + currentRank(p) + T("ばん", "位") +
+        (isAdult() ? '<em class="sb-tag cards">カード' + p.cards.length + "枚</em>" : "") + "</span></li>";
     }).join("");
   }
 
@@ -312,12 +321,10 @@
     $("dice-scene2").hidden = !two;
     var scenes = two ? [$("dice-scene"), $("dice-scene2")] : [$("dice-scene")];
     scenes.forEach(function (s) { s.classList.remove("landed"); s.classList.add("rolling"); });
-    Sound.play("dice");
     spinDiceTo(n, 0);
     if (two) spinDiceTo(m, 1);
     later(function () {
       scenes.forEach(function (s) { s.classList.remove("rolling"); s.classList.add("landed"); });
-      Sound.play("diceStop");
       done(n, m);
     }, DICE_MS);
   }
@@ -355,8 +362,8 @@
       p.boost = 0;
       p.double = false;
       rollDice(function (n) {
-        $("dice-result").innerHTML = n === 1 ? "<b>1</b> … −10てん" : "<b>" + n + "</b> × " + WAITING_BONUS + "てん！";
-        showBigNumber(n, n === 1 ? "ざんねん… −10てん" : "× " + WAITING_BONUS + "てん！");
+        $("dice-result").innerHTML = n === 1 ? "<b>1</b> … −10" + T("てん", "点") : "<b>" + n + "</b> × " + WAITING_BONUS + T("てん！", "点！");
+        showBigNumber(n, n === 1 ? T("ざんねん… −10てん", "残念… −10点") : "× " + WAITING_BONUS + T("てん！", "点！"));
         later(function () { waitingBonus(n); }, 700);
       });
       return;
@@ -381,17 +388,17 @@
       p.seasick = false;
       steps = Math.max(1, steps - 1);
       calc.push("− 1");
-      why.push("ふなよい");
+      why.push(T("ふなよい", "船酔い"));
     }
     if (p.boost) {
       steps += p.boost;
       calc.push("+ " + p.boost);
-      why.push("おいかぜ");
+      why.push(T("おいかぜ", "追い風"));
       p.boost = 0;
     }
-    var label = calc.length ? calc.join(" ") + " ＝ " + steps + "マス（" + why.join("・") + "）" : "マス すすむ！";
+    var label = calc.length ? calc.join(" ") + " ＝ " + steps + "マス（" + why.join("・") + "）" : T("マス すすむ！", "マス進む！");
     renderScoreboard();
-    $("dice-result").innerHTML = "<b>" + n + "</b> " + (steps !== n ? "→ " + steps + "マス" : "マス すすむ！");
+    $("dice-result").innerHTML = "<b>" + n + "</b> " + (steps !== n ? "→ " + steps + "マス" : T("マス すすむ！", "マス進む！"));
     showBigNumber(n, label);
     // これから通るマスが ぜんぶ見えるように カメラを合わせる
     map.showSquares(aheadOf(p.pos, steps));
@@ -402,14 +409,13 @@
   function pickDie(n, m, fn) {
     $("dice-result").innerHTML = "<b>" + n + "</b> と <b>" + m + "</b>";
     openCard({
-      type: "dice2", title: "どっちの 目を 使う？",
+      type: "dice2", title: T("どっちの 目を 使う？", "どちらの目を使う？"),
       body: '<div class="die-choices">' + [n, m].map(function (v) {
         return '<button type="button" class="die-choice" data-v="' + v + '">' + v + "</button>";
       }).join("") + "</div>"
     });
     Array.prototype.forEach.call($("card-body").querySelectorAll(".die-choice"), function (b) {
       b.addEventListener("click", function () {
-        Sound.play("click");
         hideCard();
         fn(Number(b.dataset.v));
       }, { once: true });
@@ -443,7 +449,6 @@
       left--;
       map.moveKoma(i, idx);
       map.follow(idx);
-      Sound.play("hop", dir > 0 ? hop++ : -(hop++));
     }
     function forward(to) {
       p.trail.push(p.pos);
@@ -481,9 +486,8 @@
   function chooseBranch(idx, left, fn) {
     var sq = squares[idx];
     map.showSquares([idx].concat(sq.branch.map(function (b) { return b.to; })));
-    Sound.play("reveal");
     openCard({
-      type: "fork", title: "どっちに 行く？", text: "のこり " + left + "マス",
+      type: "fork", title: T("どっちに 行く？", "どちらへ進む？"), text: T("のこり ", "残り") + left + "マス",
       body: '<div class="fork-choices">' + sq.branch.map(function (b, k) {
         return '<button type="button" class="fork-choice" data-k="' + k + '"><b>' + ruby(b.label) + "</b>" +
           (b.note ? "<small>" + ruby(b.note) + "</small>" : "") + "</button>";
@@ -491,7 +495,6 @@
     });
     Array.prototype.forEach.call($("card-body").querySelectorAll(".fork-choice"), function (b) {
       b.addEventListener("click", function () {
-        Sound.play("click");
         hideCard();
         fn(sq.branch[Number(b.dataset.k)].to);
       }, { once: true });
@@ -499,14 +502,12 @@
   }
 
   function showPassCard(sq) {
-    flashCard(passIcon(sq) + '<div><small>とおりすぎた！</small><b>' + placeName(sq) + "</b></div>");
-    Sound.play("pass");
+    flashCard(passIcon(sq) + '<div><small>' + T("とおりすぎた！", "通過！") + "</small><b>" + placeName(sq) + "</b></div>");
   }
 
   // かならず止まるマスで止まったとき
   function showStopNote(sq) {
-    flashCard(passIcon(sq) + '<div><small>ここで ストップ！</small><b>' + placeName(sq) + "</b></div>");
-    Sound.play("reveal");
+    flashCard(passIcon(sq) + '<div><small>' + T("ここで ストップ！", "ここでストップ！") + "</small><b>" + placeName(sq) + "</b></div>");
   }
 
   // 小さなカードの左の絵：名所の写真があれば写真、なければ星
@@ -533,9 +534,9 @@
     return p.points - before;
   }
 
-  // {漢字|かんじ} と書いたところを、ふりがな付きにする
+  // {漢字|かんじ} と書いたところを、ふりがな付きにする（おとなモードは 漢字だけ）
   function ruby(s) {
-    return esc(s || "").replace(/\{([^|{}]+)\|([^|{}]+)\}/g, "<ruby>$1<rt>$2</rt></ruby>");
+    return esc(s || "").replace(/\{([^|{}]+)\|([^|{}]+)\}/g, isAdult() ? "$1" : "<ruby>$1<rt>$2</rt></ruby>");
   }
 
   // 同じものが続けて出ないよう、全部出るまで くじびきのように1つずつ取り出す
@@ -592,17 +593,16 @@
     if (sq.type === "lucky" || sq.type === "happening") return simpleEvent(sq.type, drawFor(sq.type, p.pos));
     if (sq.type === "card") return cardEvent();
     if (sq.type === "rival") return rivalEvent();
-    openCard({ type: "unknown", title: "？", text: "このマスの データに もんだいが あります" });
+    openCard({ type: "unknown", title: "？", text: T("このマスの データに もんだいが あります", "このマスのデータに問題があります") });
     awardPoints(0);
   }
 
   // ゴール：着順のボーナス
   function goalEvent(p) {
     p.finishOrder = game.finished++;
-    Sound.play("goal");
     openCard({
       type: "goal", badge: "ゴール", title: "ゴール！",
-      text: (p.finishOrder + 1) + "着で " + ruby("{両津港|りょうつこう}") + "に もどってきた！ ゴールボーナス"
+      text: (p.finishOrder + 1) + T("着で " + ruby("{両津港|りょうつこう}") + "に もどってきた！ ゴールボーナス", "着で両津港に戻ってきた！ ゴールボーナス")
     });
     awardPoints(GOAL_BONUS[p.finishOrder] || 0, null, true);
   }
@@ -613,13 +613,13 @@
     openCard({ type: "place", sub: placeName(sq), title: ruby(ev.title), text: ruby(ev.text), photo: ev.photo });
     if (!ev.dice) return awardPoints(ev.point);
 
-    $("card-body").innerHTML = '<div class="bonus-calc">サイコロの 目 × <b>' + ev.dice + "</b>てん</div>";
-    cardButton("サイコロを ふる", function () {
+    $("card-body").innerHTML = '<div class="bonus-calc">' + T("サイコロの 目", "サイコロの目") + " × <b>" + ev.dice + "</b>" + T("てん", "点") + "</div>";
+    cardButton(T("サイコロを ふる", "サイコロを振る"), function () {
       $("card-actions").innerHTML = "";
       rollDice(function (n) {
         var pts = n * ev.dice;
-        showBigNumber(n, "× " + ev.dice + "てん！");
-        $("card-body").innerHTML = '<div class="bonus-calc"><b>' + n + "</b> × " + ev.dice + " ＝ <b>" + pts + "</b>てん</div>";
+        showBigNumber(n, "× " + ev.dice + T("てん！", "点！"));
+        $("card-body").innerHTML = '<div class="bonus-calc"><b>' + n + "</b> × " + ev.dice + " ＝ <b>" + pts + "</b>" + T("てん", "点") + "</div>";
         later(function () { awardPoints(pts); }, 700);
       });
     });
@@ -632,33 +632,42 @@
     if (ev.bonus) return bonusDice(ev);
     // おまもりカード：ハプニング（マイナス・船よい）を ふせぐ
     if (type === "happening" && (ev.point < 0 || ev.effect) && useGuard(cur())) {
-      $("card-body").innerHTML = '<div class="guard-note">おまもりで ふせいだ！</div>';
-      return awardPoints(0);
+      $("card-body").innerHTML = '<div class="guard-note">' + T("おまもりで ふせいだ！", "お守りで防いだ！") + "</div>";
+      return awardPoints(0, null, false, T("ふせいだ！", "防いだ！"));
     }
     applyEffect(ev);
-    awardPoints(ev.point);
+    // カードを もらえる ラッキー：「つぎへ」で カードを 引く
+    awardPoints(ev.point, ev.effect === "card" ? cardEvent : null, false, effectNote(ev));
   }
 
   // 決まったマスのイベント（I♥佐渡・棚田じじい・帰りたくない など）
   function fixedEvent(sq, ev) {
     if (ev.steps) return moveEvent(ev, sq.type);
-    openCard({ type: sq.type, badge: "とくべつ", title: ruby(ev.title), text: ruby(ev.text) });
+    openCard({ type: sq.type, badge: T("とくべつ", "特別"), title: ruby(ev.title), text: ruby(ev.text) });
     applyEffect(ev);
-    awardPoints(ev.point);
+    awardPoints(ev.point, ev.effect === "card" ? cardEvent : null, false, effectNote(ev));
+  }
+
+  // ポイントが 0 の イベントで「±0」の かわりに 出す ことば
+  function effectNote(ev) {
+    if (ev.effect === "seasick") return T("つぎの 番 −1マス", "次の番 −1マス");
+    if (ev.effect === "twoDice") return T("つぎの 番 サイコロ2こ", "次の番 サイコロ2個");
+    if (ev.effect === "card") return "カードを1枚引く";
+    if (ev.effect === "tokiUp") return T("トキに 会いやすく なった", "トキに会いやすくなった");
+    return null;
   }
 
   // もう一度サイコロをふって、決まった目が出たらボーナス（例：流れ星）
   function bonusDice(ev) {
     var b = ev.bonus;
-    $("card-body").innerHTML = '<div class="bonus-calc">' + b.dice.join("か") + "が 出たら <b>+" + b.point + "</b>てん！</div>";
-    cardButton("サイコロを ふる", function () {
+    $("card-body").innerHTML = '<div class="bonus-calc">' + b.dice.join("か") + T("が 出たら", "が出たら") + " <b>+" + b.point + "</b>" + T("てん！", "点！") + "</div>";
+    cardButton(T("サイコロを ふる", "サイコロを振る"), function () {
       $("card-actions").innerHTML = "";
       rollDice(function (n) {
         var hit = b.dice.indexOf(n) >= 0;
-        showBigNumber(n, hit ? "やった！" : "ざんねん…");
+        showBigNumber(n, hit ? "やった！" : T("ざんねん…", "残念…"));
         $("card-body").innerHTML = '<div class="bonus-calc ' + (hit ? "hit" : "miss") + '">' +
-          (hit ? ruby(b.title) + " <b>+" + b.point + "</b>てん" : "ざんねん、見られなかった…") + "</div>";
-        if (hit) Sound.play("reveal");
+          (hit ? ruby(b.title) + " <b>+" + b.point + "</b>" + T("てん", "点") : T("ざんねん、見られなかった…", "残念、見られなかった…")) + "</div>";
         later(function () { awardPoints(ev.point + (hit ? b.point : 0)); }, 700);
       });
     });
@@ -676,7 +685,7 @@
   function quizEvent() {
     var q = draw("quiz", quizzes);
     if (!q) {
-      openCard({ type: "quiz", title: "クイズマス", text: "クイズが まだ ありません" });
+      openCard({ type: "quiz", title: "クイズマス", text: T("クイズが まだ ありません", "クイズがまだありません") });
       return awardPoints(0);
     }
     var order = shuffle([0, 1, 2]);
@@ -698,10 +707,9 @@
         if (!ok) b.classList.add("wrong");
         var result = document.createElement("div");
         result.className = "quiz-result " + (ok ? "ok" : "ng");
-        result.innerHTML = ok ? "せいかい！" :
-          "ざんねん… こたえは「" + ruby(q.choices[q.answer]) + "」" + (q.explain ? "<small>" + ruby(q.explain) + "</small>" : "");
+        result.innerHTML = ok ? T("せいかい！", "正解！") :
+          T("ざんねん… こたえは「", "残念… 正解は「") + ruby(q.choices[q.answer]) + "」" + (q.explain ? "<small>" + ruby(q.explain) + "</small>" : "");
         $("card-body").appendChild(result);
-        Sound.play(ok ? "reveal" : "minus");
         awardPoints(ok ? q.point : 0);
       }, { once: true });
     });
@@ -709,13 +717,13 @@
 
   // すすむ・もどる：動いた先のマスのイベントは起こさない（ゴールをこえたらゴール）
   function moveEvent(ev, cardType) {
-    ev = ev || { title: "すすむ", text: "", steps: 1 };
+    ev = ev || { title: T("すすむ", "進む"), text: "", steps: 1 };
     var forward = ev.steps > 0;
     openCard({
-      type: cardType || "move", badge: cardType ? "とくべつ" : null, title: ruby(ev.title), text: ruby(ev.text),
-      body: '<div class="move-steps ' + (forward ? "fwd" : "back") + '">' + Math.abs(ev.steps) + "マス " + (forward ? "すすむ" : "もどる") + "！</div>"
+      type: cardType || "move", badge: cardType ? T("とくべつ", "特別") : null, title: ruby(ev.title), text: ruby(ev.text),
+      body: '<div class="move-steps ' + (forward ? "fwd" : "back") + '">' + Math.abs(ev.steps) + T("マス ", "マス") + (forward ? T("すすむ", "進む") : T("もどる", "戻る")) + "！</div>"
     });
-    cardButton(forward ? "すすむ" : "もどる", function () {
+    cardButton(forward ? T("すすむ", "進む") : T("もどる", "戻る"), function () {
       hideCard();
       walk(ev.steps, function () {
         if (cur().home) return arrive();
@@ -755,11 +763,10 @@
     var p = cur();
     var c = draw("cards", cardDeck());
     if (!c) {
-      openCard({ type: "card", title: "カードが ありません" });
+      openCard({ type: "card", title: "カードがありません" });
       return nextButton();
     }
-    Sound.play("reveal");
-    openCard({ type: "card", title: "カードを 引いた！", body: '<div class="drawn">' + cardHtml(c) + "</div>" });
+    openCard({ type: "card", title: "カードを引いた！", body: '<div class="drawn">' + cardHtml(c) + "</div>" });
     if (p.cards.length < HAND_MAX) {
       p.cards.push(c);
       renderScoreboard();
@@ -767,13 +774,12 @@
       return nextButton();
     }
     $("card-body").insertAdjacentHTML("beforeend",
-      '<p class="hand-full">カードは ' + HAND_MAX + "まいまで。どれと 交換する？</p>" +
+      '<p class="hand-full">カードは' + HAND_MAX + "枚まで。どれと交換する？</p>" +
       '<div class="swap-choices">' + p.cards.map(function (h, k) {
         return '<button type="button" class="swap-choice" data-k="' + k + '">' + cardHtml(h) + "</button>";
       }).join("") + "</div>");
     Array.prototype.forEach.call($("card-body").querySelectorAll(".swap-choice"), function (b) {
       b.addEventListener("click", function () {
-        Sound.play("click");
         p.cards[Number(b.dataset.k)] = c;
         $("card-body").innerHTML = '<div class="drawn">' + cardHtml(c) + '</div><p class="hand-full">交換した！</p>';
         renderScoreboard();
@@ -790,7 +796,7 @@
     var p = cur();
     var box = $("hand");
     if (!p.cards.length) {
-      box.innerHTML = '<p class="hand-empty">カードマスで 引けるよ</p>';
+      box.innerHTML = '<p class="hand-empty">カードマスで引ける</p>';
       return;
     }
     box.innerHTML = "";
@@ -798,7 +804,7 @@
       var b = document.createElement("button");
       b.type = "button";
       b.className = "hand-card kind-" + c.kind;
-      b.innerHTML = "<b>" + esc(c.title) + "</b><small>" + (c.kind === "guard" ? "持っているだけで ふせぐ" : ruby(c.text)) + "</small>";
+      b.innerHTML = "<b>" + esc(c.title) + "</b><small>" + (c.kind === "guard" ? "持っているだけで防ぐ" : ruby(c.text)) + "</small>";
       b.disabled = game.busy || !canUse(p, c);
       b.addEventListener("click", function () { useCard(k); });
       box.appendChild(b);
@@ -821,7 +827,6 @@
   function useCard(k) {
     var p = cur(), c = p.cards[k];
     if (!c || game.busy || !canUse(p, c)) return;
-    Sound.play("click");
 
     // 自分に つかうカードは、すぐ きく
     if (c.kind === "twoDice" || c.kind === "boost" || c.kind === "double") {
@@ -829,8 +834,7 @@
       if (c.kind === "twoDice") p.twoDice = true;
       if (c.kind === "boost") p.boost = c.steps;
       if (c.kind === "double") p.double = true;
-      flashCard('<span class="pass-star card-star"></span><div><small>カードを 使った！</small><b>' + esc(c.title) + "</b></div>");
-      Sound.play("reveal");
+      flashCard('<span class="pass-star card-star"></span><div><small>カードを使った！</small><b>' + esc(c.title) + "</b></div>");
       render();
       return;
     }
@@ -853,27 +857,25 @@
 
   // 相手の おまもりで ふせがれた
   function blocked(q, then) {
-    $("card-body").innerHTML = '<div class="guard-note">' + esc(q.name) + "さんの おまもりで ふせがれた！</div>";
-    Sound.play("minus");
+    $("card-body").innerHTML = '<div class="guard-note">' + esc(q.name) + "さんのお守りで防がれた！</div>";
     nextButton(then);
   }
 
   // 相手を えらぶ。skip を書くと「えらばない」ボタンも出す。fn(えらんだ人 か null)
   function pickPlayer(list, skip, fn) {
     if (!list.length) {
-      $("card-body").innerHTML = '<p class="hand-full">えらべる 人が いない…</p>';
+      $("card-body").innerHTML = '<p class="hand-full">選べる人がいない…</p>';
       return fn(null);
     }
-    $("card-body").innerHTML = '<p class="pick-title">だれに する？</p><div class="pick-choices">' + list.map(function (q, k) {
+    $("card-body").innerHTML = '<p class="pick-title">誰にする？</p><div class="pick-choices">' + list.map(function (q, k) {
       return '<button type="button" class="pick-choice" data-k="' + k + '">' + komaIcon(q.koma, 36) +
-        "<b>" + esc(q.name) + "</b><small>" + q.points + "てん</small></button>";
+        "<b>" + esc(q.name) + "</b><small>" + q.points + "点</small></button>";
     }).join("") + "</div>";
     var done = false;
     Array.prototype.forEach.call($("card-body").querySelectorAll(".pick-choice"), function (b) {
       b.addEventListener("click", function () {
         if (done) return;
         done = true;
-        Sound.play("click");
         Array.prototype.forEach.call($("card-body").querySelectorAll(".pick-choice"), function (x) {
           x.disabled = true;
           x.classList.toggle("picked", x === b);
@@ -903,8 +905,7 @@
     map.moveKoma(a, p.pos);
     map.moveKoma(b, q.pos);
     map.showSquares([p.pos, q.pos]);
-    Sound.play("pass");
-    $("card-body").innerHTML = '<div class="guard-note ok">' + esc(p.name) + "さんと " + esc(q.name) + "さんが 入れかわった！</div>";
+    $("card-body").innerHTML = '<div class="guard-note ok">' + esc(p.name) + "さんと" + esc(q.name) + "さんが入れ替わった！</div>";
     then();
   }
 
@@ -914,12 +915,12 @@
     var p = cur();
     var ev = draw("rival", events.rival);
     if (!ev) {
-      openCard({ type: "rival", title: "かけひき" });
+      openCard({ type: "rival", title: "駆け引き" });
       return nextButton();
     }
     openCard({ type: "rival", title: ruby(ev.title), text: ruby(ev.text) });
     if (ev.kind === "swap") {
-      return pickPlayer(swapTargets(p), "入れかえない", function (q) {
+      return pickPlayer(swapTargets(p), "入れ替えない", function (q) {
         if (!q) return nextButton();
         if (useGuard(q)) return blocked(q);
         swapPlaces(p, q, function () { nextButton(); });
@@ -930,18 +931,18 @@
         if (!q) return nextButton();
         if (useGuard(q)) return blocked(q);
         takePoints(q, ev.point);
-        $("card-body").innerHTML = '<div class="guard-note ok">' + esc(q.name) + "さんから もらった！</div>";
+        $("card-body").innerHTML = '<div class="guard-note ok">' + esc(q.name) + "さんからもらった！</div>";
         awardPoints(ev.point, null, true);
       });
     }
     if (ev.kind === "leader") {
       var top = others(p).sort(function (a, b) { return b.points - a.points; })[0];
       if (!top || top.points <= p.points) {
-        $("card-body").innerHTML = '<div class="guard-note">あなたが いちばん！ もらえる 人が いない</div>';
-        return awardPoints(0, null, true);
+        $("card-body").innerHTML = '<div class="guard-note">あなたがトップ！ もらえる人がいない</div>';
+        return awardPoints(0, null, true, "0点");
       }
       takePoints(top, ev.point);
-      $("card-body").innerHTML = '<div class="guard-note ok">' + esc(top.name) + "さんから もらった！</div>";
+      $("card-body").innerHTML = '<div class="guard-note ok">' + esc(top.name) + "さんからもらった！</div>";
       return awardPoints(ev.point, null, true);
     }
     if (ev.kind === "share") {
@@ -966,19 +967,19 @@
       return '<div class="duel-side">' + komaIcon(x.koma, 40) + "<b>" + esc(x.name) + '</b><span id="' + id + '">' + v + "</span></div>";
     }
     $("card-body").innerHTML = '<div class="duel">' + side(p, "?", "duel-a") + '<span class="duel-vs">VS</span>' + side(q, "?", "duel-b") + "</div>";
-    cardButton(esc(p.name) + "さんが ふる", function () {
+    cardButton(esc(p.name) + "さんが振る", function () {
       $("card-actions").innerHTML = "";
       rollDice(function (a) {
         $("duel-a").textContent = a;
         showBigNumber(a, esc(p.name) + "さん");
-        cardButton(esc(q.name) + "さんが ふる", function () {
+        cardButton(esc(q.name) + "さんが振る", function () {
           $("card-actions").innerHTML = "";
           rollDice(function (b) {
             $("duel-b").textContent = b;
             showBigNumber(b, esc(q.name) + "さん");
             var result = document.createElement("div");
             result.className = "quiz-result " + (a > b ? "ok" : "ng");
-            result.textContent = a === b ? "ひきわけ！" : (a > b ? p.name : q.name) + "さんの 勝ち！";
+            result.textContent = a === b ? "引き分け！" : (a > b ? p.name : q.name) + "さんの勝ち！";
             $("card-body").appendChild(result);
             if (a === b) return nextButton();
             if (a > b) {
@@ -996,6 +997,7 @@
   }
 
   // ---------- 野生のトキ（どのマスでも、イベントのあとに ときどき出る） ----------
+  // ただし トキの森公園では 出さない（公園の トキは 野生ではない）
 
   function endTurn() {
     var p = cur();
@@ -1003,9 +1005,9 @@
     var t = events.wildToki;
     var chance = t ? (p.tokiUp ? Math.max(0.1, t.chance * 2) : t.chance) : 0;
     if (p.tokiCount >= TOKI_MAX) chance = 0;
+    if (!p.home && squares[p.pos].event === "toki") chance = 0;
     if (t && Math.random() < chance) {
       p.tokiCount++;
-      Sound.play("fanfare");
       openCard({ type: "toki", badge: "レア！", title: ruby(t.title), text: ruby(t.text), photo: t.photo });
       return awardPoints(t.point, nextTurn);
     }
@@ -1037,7 +1039,7 @@
     b.type = "button";
     b.className = "big-button";
     b.innerHTML = label;
-    b.addEventListener("click", function () { Sound.play("click"); fn(b); }, { once: true });
+    b.addEventListener("click", function () { fn(b); }, { once: true });
     $("card-actions").appendChild(b);
     return b;
   }
@@ -1045,7 +1047,8 @@
   // ポイントを出す：カウントアップ → スコアボードへ飛ばす → スコアボードもカウントアップ。「つぎへ」も出す
   // then：「つぎへ」を押したあとに することは（ふつうは endTurn：野生のトキ → 次の人）
   // plain：ポイント2ばいカードを 使わない（ゴールボーナスや カード・かけひきの やりとり）
-  function awardPoints(raw, then, plain) {
+  // note：ポイントが 0 のとき「±0」の かわりに 出す ことば（船よい など）
+  function awardPoints(raw, then, plain, note) {
     var player = game.turn;
     var doubled = false;
     if (game.doubleNow && raw > 0 && !plain) {
@@ -1058,12 +1061,17 @@
     var box = $("card-points");
     box.hidden = false;
     box.className = "card-points " + sign;
-    box.innerHTML = '<span id="card-num">' + fmt(0, delta) + "</span><small>てん</small>" + (doubled ? '<em class="x2">2ばい！</em>' : "");
+    if (delta === 0 && note) {
+      box.className = "card-points note";
+      box.textContent = note;
+      return nextButton(then);
+    }
+    box.innerHTML = '<span id="card-num">' + fmt(0, delta) + "</span><small>" + T("てん", "点") + "</small>" +
+      (doubled ? '<em class="x2">' + T("2ばい！", "2倍！") + "</em>" : "");
     nextButton(then);
 
     later(function () {
       countUp($("card-num"), 0, delta, 600, function (v) { return fmt(v, delta); }, function () {
-        Sound.play(sign);
         if (delta === 0) return;
         later(function () { flyPoints(player, delta); }, 350);
       });
@@ -1073,7 +1081,7 @@
   // 「つぎへ」ボタン。then：押したあとに することは（ふつうは endTurn：野生のトキ → 次の人）
   function nextButton(then) {
     $("card-actions").innerHTML = "";
-    cardButton("つぎへ", function () {
+    cardButton(T("つぎへ", "次へ"), function () {
       finishScoreAnimations();
       hideCard();
       (then || endTurn)();
@@ -1091,13 +1099,11 @@
   // el の数字を from から to まで、ms ミリ秒かけて変える
   function countUp(el, from, to, ms, format, done) {
     var start = performance.now();
-    var lastTick = 0;
     (function frame(now) {
       if (!el.isConnected) return; // 画面が書きかわったら止める
       var t = Math.min(1, (now - start) / ms);
       var v = Math.round(from + (to - from) * (1 - Math.pow(1 - t, 2)));
       el.textContent = format(v);
-      if (now - lastTick > 70 && t < 1 && from !== to) { Sound.play("tick"); lastTick = now; }
       if (t < 1) requestAnimationFrame(frame);
       else if (done) done();
     })(start);
@@ -1123,7 +1129,6 @@
       var p = game.players[i];
       var el = $("sb-points-" + i);
       if (!el) return;
-      Sound.play("coin");
       el.parentNode.classList.add("bump");
       var fromV = p.shown;
       p.shown = p.points;
@@ -1147,6 +1152,7 @@
     game.busy = false;
     game.doubleNow = false;
     $("dice-result").textContent = "";
+    game.history.push(game.players.map(function (p) { return p.points; }));
     if (game.finished >= game.players.length) {
       later(showResults, 600);
       return;
@@ -1161,56 +1167,107 @@
     var pts = n === 1 ? WAITING_ONE : n * WAITING_BONUS;
     map.setInteractive(true);
     openCard({
-      type: "goal", badge: "ゴールずみ", title: "まちじかん ボーナス",
-      text: ruby("{両津港|りょうつこう}で みんなを まちながら、サイコロを ふったよ。"),
+      type: "goal", badge: T("ゴールずみ", "ゴール済み"), title: T("まちじかん ボーナス", "待ち時間ボーナス"),
+      text: T(ruby("{両津港|りょうつこう}で みんなを まちながら、サイコロを ふったよ。"), "両津港でみんなを待ちながら、サイコロを振った。"),
       body: n === 1
-        ? '<div class="bonus-calc miss"><b>1</b> が 出ちゃった… <b>−10</b>てん</div>'
-        : '<div class="bonus-calc"><b>' + n + "</b> × " + WAITING_BONUS + " ＝ <b>" + pts + "</b>てん</div>"
+        ? '<div class="bonus-calc miss"><b>1</b> ' + T("が 出ちゃった…", "が出てしまった…") + " <b>−10</b>" + T("てん", "点") + "</div>"
+        : '<div class="bonus-calc"><b>' + n + "</b> × " + WAITING_BONUS + " ＝ <b>" + pts + "</b>" + T("てん", "点") + "</div>"
     });
     awardPoints(pts, nextTurn);
   }
 
   // ---------- 結果発表 ----------
 
+  // まず ポイントの うつりかわりを 棒グラフの ムービーで 見せて、そのあと 表彰台
   function showResults() {
-    Sound.stopBgm();
+    $("result-buttons").classList.remove("show");
+    $("podium-box").hidden = true;
+    $("race-box").hidden = false;
+    showScreen("result-screen");
+    playRace(game.players, game.history, function () { later(showPodium, 900); });
+  }
+
+  // ポイントの 推移グラフ：番が おわるごとの ポイントを、横棒が のびちぢみ・ならびかえ しながら 追っていく
+  var RACE_ROW = 58;       // 1人ぶんの 高さ（px）
+  var RACE_MS = 9000;      // ムービー全体の 長さ（番が 多いときは 1番あたりを みじかくする）
+  var RACE_STEP_MAX = 500; // 1番あたり いちばん長くて
+  var RACE_STEP_MIN = 60;  // 1番あたり いちばん短くて
+  var raceFrame = null;
+  function playRace(players, history, done) {
+    if (raceFrame) cancelAnimationFrame(raceFrame);
+    var box = $("race");
+    var last = history.length - 1;
+    var top = 1;
+    history.forEach(function (row) { row.forEach(function (v) { top = Math.max(top, v); }); });
+    box.style.height = players.length * RACE_ROW + "px";
+    box.innerHTML = players.map(function (p, i) {
+      return '<div class="race-row" id="race-' + i + '" style="--pc:' + p.koma.color + '">' +
+        '<span class="race-name">' + komaIcon(p.koma, 40) + "<b>" + esc(p.name) + "</b></span>" +
+        '<span class="race-track"><span class="race-bar"></span><span class="race-val"></span></span></div>';
+    }).join("");
+    var rows = players.map(function (_, i) { return $("race-" + i); });
+    var stepMs = Math.max(RACE_STEP_MIN, Math.min(RACE_STEP_MAX, RACE_MS / Math.max(1, last)));
+    var start = null;
+    function drawRace(pos) {
+      var k = Math.min(last, Math.floor(pos)), f = pos - k;
+      var next = history[Math.min(last, k + 1)];
+      var vals = history[k].map(function (v, i) { return v + (next[i] - v) * f; });
+      var order = vals.map(function (v, i) { return i; }).sort(function (a, b) { return vals[b] - vals[a] || a - b; });
+      order.forEach(function (i, r) {
+        var row = rows[i];
+        row.style.transform = "translateY(" + r * RACE_ROW + "px)";
+        row.querySelector(".race-bar").style.width = Math.max(0, vals[i]) / top * 100 + "%";
+        var v = Math.round(vals[i]);
+        var val = row.querySelector(".race-val");
+        val.textContent = v + T("てん", "点");
+        val.classList.toggle("minus", v < 0);
+      });
+      $("race-turn").textContent = "ターン " + Math.round(pos) + " / " + last;
+    }
+    drawRace(0);
+    raceFrame = requestAnimationFrame(function frame(now) {
+      if (start === null) start = now;
+      var pos = Math.min(last, (now - start) / stepMs);
+      drawRace(pos);
+      if (pos < last) raceFrame = requestAnimationFrame(frame);
+      else { raceFrame = null; done(); }
+    });
+  }
+
+  function showPodium() {
     // ポイントの多い順。同点なら先にゴールした人が上
     var ranked = game.players.slice().sort(function (a, b) {
       return b.points - a.points || a.finishOrder - b.finishOrder;
     });
+    var pt = T("てん", "点"), rk = T("い", "位");
 
     var slot = function (p, rank) {
       return '<div class="podium-slot rank-' + rank + '" id="podium-' + rank + '">' +
         '<div class="podium-koma">' + komaIcon(p.koma, 76) + "</div>" +
         '<div class="podium-name">' + esc(p.name) + "</div>" +
-        '<div class="podium-points">' + p.points + "<small>てん</small></div>" +
-        '<div class="podium-block" style="background:' + p.koma.color + '">' + rank + "<small>い</small></div></div>";
+        '<div class="podium-points">' + p.points + "<small>" + pt + "</small></div>" +
+        '<div class="podium-block" style="background:' + p.koma.color + '">' + rank + "<small>" + rk + "</small></div></div>";
     };
 
     // 表彰台は 2位・1位・3位 の順にならべる
     $("podium").innerHTML = [1, 0, 2].filter(function (r) { return ranked[r]; })
       .map(function (r) { return slot(ranked[r], r + 1); }).join("");
     $("other-ranks").innerHTML = ranked.slice(3).map(function (p, i) {
-      return "<li>" + (i + 4) + "い " + komaIcon(p.koma, 32) + esc(p.name) + "　" + p.points + "てん</li>";
+      return "<li>" + (i + 4) + rk + " " + komaIcon(p.koma, 32) + esc(p.name) + "　" + p.points + pt + "</li>";
     }).join("");
-    $("again-button").classList.remove("show");
-
-    showScreen("result-screen");
+    $("race-box").hidden = true;
+    $("podium-box").hidden = false;
 
     // 3位 → 2位 → 1位 の順に登場。1位で紙吹雪
     var order = [3, 2, 1].filter(function (r) { return ranked[r - 1]; });
-    Sound.play("drum");
     order.forEach(function (rank, k) {
       later(function () {
         $("podium-" + rank).classList.add("show");
         if (rank === 1) {
-          Sound.play("fanfare");
           Confetti.start($("confetti"));
-          later(function () { $("again-button").classList.add("show"); }, 1200);
-        } else {
-          Sound.play("podium");
+          later(function () { $("result-buttons").classList.add("show"); }, 1200);
         }
-      }, 900 + k * 1100 + (rank === 1 ? 400 : 0));
+      }, 600 + k * 1100 + (rank === 1 ? 400 : 0));
     });
   }
 
@@ -1267,21 +1324,20 @@
   buildDice();
   spinDiceTo(1);
   renderSetup();
-  renderSoundButton();
-  $("sound-button").addEventListener("click", function () {
-    Sound.unlock();
-    Sound.setOn(!Sound.isOn());
-    renderSoundButton();
-    if (Sound.isOn() && game && $("game-screen").classList.contains("active")) Sound.startBgm();
-  });
   $("start-button").addEventListener("click", startGame);
   $("roll-button").addEventListener("click", roll);
   $("again-button").addEventListener("click", function () {
-    Sound.play("click");
     clearTimers();
     Confetti.stop();
+    if (raceFrame) { cancelAnimationFrame(raceFrame); raceFrame = null; }
     if (map) { map.destroy(); map = null; }
     showScreen("title-screen");
+  });
+  // グラフを もう一度 見る
+  $("replay-button").addEventListener("click", function () {
+    clearTimers();
+    Confetti.stop();
+    showResults();
   });
 
   // ---------- 編集モード（URLの最後に ?edit=1） ----------

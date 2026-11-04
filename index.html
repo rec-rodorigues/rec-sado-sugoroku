@@ -15,15 +15,15 @@
 
   <!-- タイトル画面 -->
   <section id="title-screen" class="screen active">
-    <h1 class="game-title"><ruby>佐渡<rt>さど</rt></ruby>すごろく</h1>
+    <h1 class="game-title" data-adult="佐渡すごろく"><ruby>佐渡<rt>さど</rt></ruby>すごろく</h1>
     <div id="title-komas" class="title-komas"></div>
-    <p class="lead">さどを ぐるっと <ruby>一周<rt>いっしゅう</rt></ruby>して、ポイントを あつめよう！</p>
+    <p class="lead" data-adult="佐渡をぐるっと一周して、ポイントを集めよう！">さどを ぐるっと <ruby>一周<rt>いっしゅう</rt></ruby>して、ポイントを あつめよう！</p>
     <div class="setup-panel">
-      <h2>なん人で あそぶ？</h2>
+      <h2 data-adult="何人で遊ぶ？">なん人で あそぶ？</h2>
       <div id="count-buttons" class="count-buttons"></div>
       <h2>モード</h2>
       <div id="mode-buttons" class="mode-buttons"></div>
-      <h2>名前と コマ</h2>
+      <h2 data-adult="名前とコマ">名前と コマ</h2>
       <div id="player-setup" class="player-setup"></div>
       <button type="button" id="start-button" class="big-button start-button">スタート！</button>
     </div>
@@ -32,23 +32,23 @@
   <!-- ゲーム画面 -->
   <section id="game-screen" class="screen">
     <header id="turn-banner" class="turn-banner">
-      <span class="game-logo"><ruby>佐渡<rt>さど</rt></ruby>すごろく</span>
+      <span class="game-logo" data-adult="佐渡すごろく"><ruby>佐渡<rt>さど</rt></ruby>すごろく</span>
       <span id="turn-text" class="turn-text"></span>
     </header>
     <div class="game-body">
       <div class="map-area">
         <div id="map" class="map"></div>
         <ul class="legend">
-          <li><i class="lg-place"></i>めいしょ</li>
+          <li><i class="lg-place"></i><span data-adult="名所">めいしょ</span></li>
           <li><i class="lg-lucky"></i>ラッキー</li>
           <li><i class="lg-quiz"></i>クイズ</li>
           <li><i class="lg-happening"></i>ハプニング</li>
-          <li><i class="lg-move"></i>すすむ・もどる</li>
+          <li><i class="lg-move"></i><span data-adult="進む・戻る">すすむ・もどる</span></li>
           <li class="adult-only"><i class="lg-card"></i>カード</li>
-          <li class="adult-only"><i class="lg-rival"></i>かけひき</li>
+          <li class="adult-only"><i class="lg-rival"></i>駆け引き</li>
         </ul>
         <div id="minimap" class="minimap"></div>
-        <p id="map-offline" class="map-offline" hidden>地図が よみこめません。インターネットに つないでください。</p>
+        <p id="map-offline" class="map-offline" hidden data-adult="地図を読み込めません。インターネットに接続してください。">地図が よみこめません。インターネットに つないでください。</p>
         <div id="big-number" class="big-number"></div>
         <div id="pass-card" class="pass-card"></div>
         <div id="event-card" class="event-card"></div>
@@ -60,7 +60,7 @@
         </div>
         <!-- おとなモードの手札 -->
         <div id="hand-box" class="hand-box adult-only">
-          <h2>カード <small>サイコロを ふる前に つかえる</small></h2>
+          <h2>カード <small>サイコロを振る前に使える</small></h2>
           <div id="hand" class="hand"></div>
         </div>
         <div class="dice-box">
@@ -90,14 +90,21 @@
   <!-- 結果発表 -->
   <section id="result-screen" class="screen">
     <canvas id="confetti" class="confetti"></canvas>
-    <h1 class="result-title">けっか はっぴょう</h1>
-    <div id="podium" class="podium"></div>
-    <ol id="other-ranks" class="other-ranks"></ol>
-    <button type="button" id="again-button" class="big-button">もういちど あそぶ</button>
+    <h1 class="result-title" data-adult="結果発表">けっか はっぴょう</h1>
+    <!-- ポイントの推移（棒グラフのムービー） -->
+    <div id="race-box" class="race-box">
+      <div class="race-head"><span data-adult="ポイントの推移">ポイントの うつりかわり</span><b id="race-turn"></b></div>
+      <div id="race" class="race"></div>
+    </div>
+    <div id="podium-box" class="podium-box" hidden>
+      <div id="podium" class="podium"></div>
+      <ol id="other-ranks" class="other-ranks"></ol>
+    </div>
+    <div id="result-buttons" class="result-buttons">
+      <button type="button" id="replay-button" class="big-button sub-button" data-adult="グラフをもう一度見る">グラフを もう一度 見る</button>
+      <button type="button" id="again-button" class="big-button" data-adult="もう一度遊ぶ">もういちど あそぶ</button>
+    </div>
   </section>
-
-  <!-- 音の ON/OFF -->
-  <button type="button" id="sound-button" class="sound-button"></button>
 
   <!-- データの書き間違いのお知らせ -->
   <div id="data-problems" class="data-problems" hidden></div>
@@ -112,7 +119,6 @@
   <script src="lib/leaflet/leaflet.js"></script>
   <script src="js/map-data.js"></script>
   <script src="js/check.js"></script>
-  <script src="js/sound.js"></script>
   <script src="js/roads.js"></script>
   <script src="js/map.js"></script>
   <script src="js/game.js"></script>

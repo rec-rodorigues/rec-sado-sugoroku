@@ -476,6 +476,8 @@ button { font-family: inherit; color: inherit; }
 .card-points.plus { color: var(--gold); }
 .card-points.minus { color: var(--red); }
 .card-points.zero { color: var(--sub); }
+/* ポイントが 0 で、かわりに はたらきを 出すとき（船よい など） */
+.card-points.note { font-size: 30px; color: var(--sea-deep); }
 
 /* 右側 */
 .side { width: 330px; flex: none; display: flex; flex-direction: column; gap: 12px; }
@@ -596,8 +598,9 @@ button { font-family: inherit; color: inherit; }
   75% { transform: translateY(-10px) rotate(6deg); }
 }
 .podium-koma { height: 92px; display: flex; align-items: flex-end; }
-#again-button { opacity: 0; pointer-events: none; transition: opacity 0.4s; }
-#again-button.show { opacity: 1; pointer-events: auto; }
+.result-buttons { display: flex; gap: 16px; margin-top: 8px; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
+.result-buttons.show { opacity: 1; pointer-events: auto; }
+.sub-button { background: #fff; color: var(--sea-deep); box-shadow: 0 6px 0 #9fb6c6, var(--shadow); }
 #result-screen > .confetti { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
 .podium-name { font-size: 24px; font-weight: 800; margin-top: 4px; }
 .podium-points { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
@@ -737,28 +740,6 @@ button { font-family: inherit; color: inherit; }
   30% { transform: scale(1.06); background: var(--gold-light); }
   100% { transform: scale(1); }
 }
-
-/* 音の ON/OFF */
-.sound-button {
-  position: fixed;
-  z-index: 2000;
-  top: 14px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 48px;
-  padding: 0 16px 0 12px;
-  border: none;
-  border-radius: 999px;
-  background: #fff;
-  color: var(--sea-deep);
-  font-size: 18px;
-  font-weight: 800;
-  box-shadow: var(--shadow);
-  cursor: pointer;
-}
-.sound-button.off { color: var(--sub); background: #e9eef2; }
 
 /* ---------- イベントカードの中身 ---------- */
 
@@ -1061,3 +1042,55 @@ button { font-family: inherit; color: inherit; }
 .dice-scene[hidden] { display: none; }
 .pick-choice:disabled { cursor: default; opacity: 0.45; }
 .pick-choice.picked { opacity: 1; border-color: var(--orange); background: #fdf1e6; }
+
+/* ---------- 結果発表：ポイントの推移（棒グラフのムービー） ---------- */
+
+.race-box {
+  width: min(960px, 92vw);
+  background: var(--card);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  padding: 18px 28px 22px;
+}
+.race-box[hidden], .podium-box[hidden] { display: none; }
+.podium-box { display: flex; flex-direction: column; align-items: center; }
+.race-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 22px; font-weight: 800; color: var(--sub); margin-bottom: 10px; }
+.race-head b { font-size: 26px; color: var(--sea-deep); font-variant-numeric: tabular-nums; }
+.race { position: relative; }
+.race-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: transform 0.35s ease;
+}
+.race-name { width: 190px; flex: none; display: flex; align-items: center; gap: 8px; font-size: 20px; overflow: hidden; white-space: nowrap; }
+.race-name b { overflow: hidden; text-overflow: ellipsis; }
+.race-track { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.race-bar { display: block; height: 34px; min-width: 4px; border-radius: 0 10px 10px 0; background: var(--pc); flex: none; max-width: calc(100% - 90px); }
+.race-val { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.race-val.minus { color: var(--red); }
+
+/* ---------- 5人・6人のとき ---------- */
+
+/* タイトル画面：2列にならべ、コマは絵だけ（名前はマウスをのせると出る） */
+.player-setup.many { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; row-gap: 8px; }
+.player-setup.many .player-row input { width: 150px; }
+.player-setup.many .koma-button { padding: 4px; }
+.player-setup.many .koma-button span:not(.koma-icon) { display: none; }
+
+/* スコアボード：1人1行に つめる（アイコン・名前・順位・ポイント） */
+.scoreboard-box.many { padding: 10px 12px; }
+.scoreboard-box.many h2 { display: none; }
+.scoreboard.many { gap: 3px; }
+.scoreboard.many li { padding: 0 8px; grid-template-columns: 30px 1fr auto auto; grid-template-rows: auto; column-gap: 6px; }
+.scoreboard.many .koma-icon { grid-row: auto; width: 30px !important; height: 30px !important; }
+.scoreboard.many .sb-name { font-size: 16px; }
+.scoreboard.many .sb-rank { grid-column: 3; grid-row: 1; font-size: 13px; }
+.scoreboard.many .sb-points { grid-column: 4; grid-row: 1; font-size: 22px; }
+.scoreboard.many .sb-points small { font-size: 13px; }
+.scoreboard.many .sb-tag, .scoreboard.many .sb-goal { font-size: 11px; padding: 0 5px; }
