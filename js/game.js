@@ -26,7 +26,8 @@
 
   var GOAL_BONUS = [150, 120, 80, 50, 30, 20]; // 1着〜6着
   var TOKI_MAX = 3;       // 野生のトキは 1人 3回まで
-  var SECRET_WITHIN = 10; // 全員が ゴールまで この マス数 以内に なったら、次の番から ポイントを ひみつに する
+  var SECRET_WITHIN = 10; // ハード：全員が ゴールまで この マス数 以内に なったら、次の番から ポイントを ひみつに する
+  var SECRET_KIDS_AT = "iwakubi"; // イージー：全員が この マス（岩首昇竜棚田）に 着いたら、次の番から ひみつに する
   var WAITING_BONUS = 5;    // ゴールした人がサイコロをふったときの「出た目 × 5てん」
   var WAITING_ONE = -10;   // ただし 1 が出たら −10てん
   var STEP_MS = 300;   // 1マス進む時間
@@ -781,6 +782,13 @@
     return (goalDistMemo[key] = best);
   }
   function playerGoalDist(p) { return p.finishOrder !== null || p.home ? 0 : goalDist(p.pos); }
+  // 全員が この マス数 以内に 来たら ひみつ。イージーは 岩首昇竜棚田から ゴールまでの マス数（棚田に 着いた人は ここに 入る）
+  function secretLimit() {
+    if (mode === "kids") {
+      for (var i = 0; i < squares.length; i++) if (squares[i].event === SECRET_KIDS_AT) return goalDist(i);
+    }
+    return SECRET_WITHIN;
+  }
 
   // 売店の 商品を えらぶ：入れ替えを 売る 売店（ゲームごとに ランダム）では 入れ替えを いつも。のこりは Tシャツと カードから ランダム
   function shopGoods(sqIndex) {
@@ -1266,9 +1274,9 @@
       later(showResults, 600);
       return;
     }
-    // 全員が ゴールまで 10マス以内に なったら、次の番から ポイントを ひみつに する
+    // 全員が ゴール近くに 来たら（イージーは 岩首昇竜棚田、ハードは のこり10マス以内）、次の番から ポイントを ひみつに する
     var revealNow = false;
-    if (!game.secret && game.players.every(function (p) { return playerGoalDist(p) <= SECRET_WITHIN; })) {
+    if (!game.secret && game.players.every(function (p) { return playerGoalDist(p) <= secretLimit(); })) {
       game.secret = true;
       revealNow = true;
     }
