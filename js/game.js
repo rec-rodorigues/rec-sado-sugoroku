@@ -8,9 +8,9 @@
   // コマ。image の絵を差し替えればキャラクターが変わる（color はプレイヤーの色）
   var KOMA = [
     { name: "ドードー", color: "#e8708e", image: "images/koma/dodo.png" },
-    { name: "たらいぶね", adultName: "たらい舟", color: "#2f6fc8", image: "images/koma/tarai.svg" },
-    { name: "金のかたまり", adultName: "金塊", color: "#8e5cc4", image: "images/koma/kin.svg" },
-    { name: "おにぎり", color: "#3a9d5d", image: "images/koma/onigiri.svg" },
+    { name: "たらいぶね", adultName: "たらい舟", color: "#2f6fc8", image: "images/koma/tarai.png" },
+    { name: "金のかたまり", adultName: "金塊", color: "#8e5cc4", image: "images/koma/kin.png" },
+    { name: "おにぎり", color: "#3a9d5d", image: "images/koma/onigiri.png" },
     { name: "おんでこ", adultName: "{鬼太鼓|おんでこ}", color: "#e5832a", image: "images/koma/ondeko.png" },
     { name: "ブリ", color: "#1f9aa6", image: "images/koma/buri.png" }
   ];
