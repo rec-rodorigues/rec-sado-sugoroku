@@ -1479,12 +1479,17 @@
     this.setAttribute("aria-pressed", on);
   });
   // 全画面：ブラウザの わくや タブを 消して、モニターいっぱいに する（Esc で もどる）
+  // （iPhone の Safari など、全画面に できない ブラウザでは ボタンを 出さない。古い iPad の Safari は webkit の 名前で 使う）
+  var docEl = document.documentElement;
+  function fullNow() { return document.fullscreenElement || document.webkitFullscreenElement; }
+  $("fullscreen-button").hidden = !(document.fullscreenEnabled || document.webkitFullscreenEnabled);
   $("fullscreen-button").addEventListener("click", function () {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(function () {});
+    if (fullNow()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else if (docEl.requestFullscreen) docEl.requestFullscreen().catch(function () {});
+    else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
   });
-  document.addEventListener("fullscreenchange", function () {
-    $("fullscreen-button").setAttribute("aria-pressed", !!document.fullscreenElement);
+  ["fullscreenchange", "webkitfullscreenchange"].forEach(function (ev) {
+    document.addEventListener(ev, function () { $("fullscreen-button").setAttribute("aria-pressed", !!fullNow()); });
   });
   $("again-button").addEventListener("click", function () {
     clearTimers();

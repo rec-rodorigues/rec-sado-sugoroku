@@ -205,7 +205,10 @@ var MapView = (function () {
     function showSquares(list) {
       lastShown = list;
       var b = L.latLngBounds(list.map(function (k) { return [squares[k].lat, squares[k].lng]; }));
-      var zoom = map.getBoundsZoom(b, false, L.point(140, 160));
+      // まわりの よゆう：PC では 横140・たて160px。地図の わくが 小さい（スマホなど）ときは、わくに あわせて へらす
+      var size = map.getSize(), small = window.innerWidth < 1100 || window.innerHeight < 640;
+      var pad = small ? L.point(Math.min(140, size.x * 0.2), Math.min(160, size.y * 0.25)) : L.point(140, 160);
+      var zoom = map.getBoundsZoom(b, false, pad);
       zoom = Math.max(FIT_MIN_ZOOM, Math.min(FIT_MAX_ZOOM, Math.floor(zoom * 2) / 2));
       map.setView(b.getCenter(), zoom, { animate: true, duration: 0.5 });
     }
